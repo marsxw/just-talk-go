@@ -81,12 +81,6 @@ just-talk --backend wayland
 just-talk --backend x11
 ```
 
-Common Wayland dependencies:
-
-```bash
-sudo pacman -S --needed wl-clipboard wtype
-```
-
 ## Configuration
 
 Default config path:

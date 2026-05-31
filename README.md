@@ -81,12 +81,6 @@ just-talk --backend wayland
 just-talk --backend x11
 ```
 
-Wayland 下常用依赖：
-
-```bash
-sudo pacman -S --needed wl-clipboard wtype
-```
-
 ## 配置
 
 默认配置路径：

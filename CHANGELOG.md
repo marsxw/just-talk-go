@@ -12,6 +12,7 @@ All notable project changes are tracked here.
 - Added Linux recording status overlay for X11 and Wayland.
 - Added macOS support for global hotkeys, native recording, clipboard, auto-submit, recording status overlay, and environment checks.
 - Removed non-cgo macOS fallback builds; Just Talk now requires cgo for native platform integration.
+- Replaced the old Claude-specific agent guide with `AGENTS.md` and clarified build documentation.
 - Improved toggle and hold hotkey behavior for fast repeated key presses.
 
 ## 2026-05-30
