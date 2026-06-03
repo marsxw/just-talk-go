@@ -197,6 +197,10 @@ func NewProvider() (Provider, error) {
 }
 
 func (p *darwinProvider) Register(combo Combo) (<-chan Event, error) {
+	return p.RegisterWithOptions(combo, RegisterOptions{})
+}
+
+func (p *darwinProvider) RegisterWithOptions(combo Combo, opts RegisterOptions) (<-chan Event, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

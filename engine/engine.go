@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -216,8 +216,12 @@ func (e *Engine) WatchConfig(path string) {
 			case <-e.ctx.Done():
 				return
 			case event, ok := <-watcher.Events:
-				if !ok { return }
-				if filepath.Base(event.Name) != base { continue }
+				if !ok {
+					return
+				}
+				if filepath.Base(event.Name) != base {
+					continue
+				}
 				if event.Has(fsnotify.Write) {
 					e.logger.Info("config file changed, reloading", "path", path)
 					newCfg, err := config.Load(path)
@@ -227,7 +231,10 @@ func (e *Engine) WatchConfig(path string) {
 					}
 					// Update engine config
 					e.mu.Lock()
-					if e.ctx.Err() != nil { e.mu.Unlock(); return }
+					if e.ctx.Err() != nil {
+						e.mu.Unlock()
+						return
+					}
 					e.cfg = newCfg
 					e.mu.Unlock()
 					// Notify plugins
@@ -240,7 +247,9 @@ func (e *Engine) WatchConfig(path string) {
 					}
 				}
 			case err, ok := <-watcher.Errors:
-				if !ok { return }
+				if !ok {
+					return
+				}
 				e.logger.Error("config watcher error", "error", err)
 			}
 		}
@@ -259,6 +268,10 @@ type pluginEnvAdapter struct {
 
 func (a *pluginEnvAdapter) RegisterHotkey(combo hotkey.Combo, handler func(hotkey.Event)) error {
 	return a.handler.Register(combo, handler)
+}
+
+func (a *pluginEnvAdapter) RegisterHotkeyWithOptions(combo hotkey.Combo, opts hotkey.RegisterOptions, handler func(hotkey.Event)) error {
+	return a.handler.RegisterWithOptions(combo, opts, handler)
 }
 
 func (a *pluginEnvAdapter) UnregisterHotkey(combo hotkey.Combo) error {

@@ -24,6 +24,10 @@ func NewMockProvider() *MockProvider {
 
 // Register registers a hotkey combo.
 func (m *MockProvider) Register(combo Combo) (<-chan Event, error) {
+	return m.RegisterWithOptions(combo, RegisterOptions{})
+}
+
+func (m *MockProvider) RegisterWithOptions(combo Combo, opts RegisterOptions) (<-chan Event, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

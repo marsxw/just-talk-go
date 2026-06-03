@@ -31,6 +31,10 @@ type Provider interface {
 	// Registering the same combo twice returns an error.
 	Register(combo Combo) (<-chan Event, error)
 
+	// RegisterWithOptions registers a hotkey combo with provider-specific
+	// behavior such as suppressing the original key events when supported.
+	RegisterWithOptions(combo Combo, opts RegisterOptions) (<-chan Event, error)
+
 	// Unregister removes a previously registered hotkey combo.
 	// The event channel is closed.
 	Unregister(combo Combo) error
@@ -48,6 +52,10 @@ type Provider interface {
 
 	// Info returns metadata about the provider.
 	Info() ProviderInfo
+}
+
+type RegisterOptions struct {
+	Suppress bool
 }
 
 // ProviderInfo describes a provider implementation.

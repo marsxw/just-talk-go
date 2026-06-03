@@ -17,20 +17,20 @@ import (
 
 // Windows DLL procedures
 var (
-	modUser32              = windows.NewLazySystemDLL("user32.dll")
-	modKernel32            = windows.NewLazySystemDLL("kernel32.dll")
-	procSetWindowsHookExW  = modUser32.NewProc("SetWindowsHookExW")
+	modUser32               = windows.NewLazySystemDLL("user32.dll")
+	modKernel32             = windows.NewLazySystemDLL("kernel32.dll")
+	procSetWindowsHookExW   = modUser32.NewProc("SetWindowsHookExW")
 	procUnhookWindowsHookEx = modUser32.NewProc("UnhookWindowsHookEx")
-	procCallNextHookEx     = modUser32.NewProc("CallNextHookEx")
-	procGetMessageW        = modUser32.NewProc("GetMessageW")
-	procPostThreadMessageW = modUser32.NewProc("PostThreadMessageW")
-	procGetModuleHandleW   = modKernel32.NewProc("GetModuleHandleW")
+	procCallNextHookEx      = modUser32.NewProc("CallNextHookEx")
+	procGetMessageW         = modUser32.NewProc("GetMessageW")
+	procPostThreadMessageW  = modUser32.NewProc("PostThreadMessageW")
+	procGetModuleHandleW    = modKernel32.NewProc("GetModuleHandleW")
 )
 
 const (
-	whKeyboardLL    = 13
-	wmQuit          = 0x0012
-	llkhfUp         = 0x8000
+	whKeyboardLL = 13
+	wmQuit       = 0x0012
+	llkhfUp      = 0x8000
 )
 
 // Windows virtual key codes not in windows package.
@@ -41,24 +41,58 @@ const (
 	vkLWin    = 0x5B
 	vkRWin    = 0x5C
 
-	vkF1  = 0x70; vkF2  = 0x71; vkF3  = 0x72; vkF4  = 0x73
-	vkF5  = 0x74; vkF6  = 0x75; vkF7  = 0x76; vkF8  = 0x77
-	vkF9  = 0x78; vkF10 = 0x79; vkF11 = 0x7A; vkF12 = 0x7B
+	vkF1  = 0x70
+	vkF2  = 0x71
+	vkF3  = 0x72
+	vkF4  = 0x73
+	vkF5  = 0x74
+	vkF6  = 0x75
+	vkF7  = 0x76
+	vkF8  = 0x77
+	vkF9  = 0x78
+	vkF10 = 0x79
+	vkF11 = 0x7A
+	vkF12 = 0x7B
 
-	vkNumpad0 = 0x60; vkNumpad1 = 0x61; vkNumpad2 = 0x62
-	vkNumpad3 = 0x63; vkNumpad4 = 0x64; vkNumpad5 = 0x65
-	vkNumpad6 = 0x66; vkNumpad7 = 0x67; vkNumpad8 = 0x68; vkNumpad9 = 0x69
+	vkNumpad0 = 0x60
+	vkNumpad1 = 0x61
+	vkNumpad2 = 0x62
+	vkNumpad3 = 0x63
+	vkNumpad4 = 0x64
+	vkNumpad5 = 0x65
+	vkNumpad6 = 0x66
+	vkNumpad7 = 0x67
+	vkNumpad8 = 0x68
+	vkNumpad9 = 0x69
 
-	vkSpace  = 0x20; vkReturn  = 0x0D; vkBack    = 0x08
-	vkTab    = 0x09; vkEscape  = 0x1B; vkCapital = 0x14
-	vkUp     = 0x26; vkDown    = 0x28; vkLeft    = 0x25; vkRight = 0x27
-	vkHome   = 0x24; vkEnd     = 0x23; vkPrior   = 0x21; vkNext  = 0x22
-	vkInsert = 0x2D; vkDelete  = 0x2E
+	vkSpace   = 0x20
+	vkReturn  = 0x0D
+	vkBack    = 0x08
+	vkTab     = 0x09
+	vkEscape  = 0x1B
+	vkCapital = 0x14
+	vkUp      = 0x26
+	vkDown    = 0x28
+	vkLeft    = 0x25
+	vkRight   = 0x27
+	vkHome    = 0x24
+	vkEnd     = 0x23
+	vkPrior   = 0x21
+	vkNext    = 0x22
+	vkInsert  = 0x2D
+	vkDelete  = 0x2E
 
-	vkOem3      = 0xC0; vkOemMinus  = 0xBD; vkOemPlus   = 0xBB
-	vkOem4      = 0xDB; vkOem6      = 0xDD; vkOem5      = 0xDC
-	vkOem1      = 0xBA; vkOem7      = 0xDE
-	vkOemComma  = 0xBC; vkOemPeriod = 0xBE; vkOem2      = 0xBF
+	vkOem3      = 0xC0
+	vkOemMinus  = 0xBD
+	vkOemPlus   = 0xBB
+	vkOem4      = 0xDB
+	vkOem6      = 0xDD
+	vkOem5      = 0xDC
+	vkOem1      = 0xBA
+	vkOem7      = 0xDE
+	vkOemComma  = 0xBC
+	vkOemPeriod = 0xBE
+	vkOem2      = 0xBF
 )
 
 // Windows VK → unified KeyCode.
@@ -84,21 +118,21 @@ var winVKToKey = map[uint32]KeyCode{
 	vkF5: KeyF5, vkF6: KeyF6, vkF7: KeyF7, vkF8: KeyF8,
 	vkF9: KeyF9, vkF10: KeyF10, vkF11: KeyF11, vkF12: KeyF12,
 
-	vkSpace:  KeySpace,    vkTab:    KeyTab,
-	vkReturn: KeyEnter,    vkEscape: KeyEscape,
-	vkBack:   KeyBackspace, vkCapital: KeyCapsLock,
-	vkUp:     KeyArrowUp,   vkDown:    KeyArrowDown,
-	vkLeft:   KeyArrowLeft,  vkRight:   KeyArrowRight,
-	vkHome:   KeyHome,      vkEnd:     KeyEnd,
-	vkPrior:  KeyPageUp,    vkNext:    KeyPageDown,
-	vkInsert: KeyInsert,    vkDelete:  KeyDelete,
+	vkSpace: KeySpace, vkTab: KeyTab,
+	vkReturn: KeyEnter, vkEscape: KeyEscape,
+	vkBack: KeyBackspace, vkCapital: KeyCapsLock,
+	vkUp: KeyArrowUp, vkDown: KeyArrowDown,
+	vkLeft: KeyArrowLeft, vkRight: KeyArrowRight,
+	vkHome: KeyHome, vkEnd: KeyEnd,
+	vkPrior: KeyPageUp, vkNext: KeyPageDown,
+	vkInsert: KeyInsert, vkDelete: KeyDelete,
 
-	vkOem3:      KeyBacktick,    vkOemMinus: KeyMinus,
-	vkOemPlus:   KeyEqual,       vkOem4:     KeyLeftBracket,
-	vkOem6:      KeyRightBracket, vkOem5:     KeyBackslash,
-	vkOem1:      KeySemicolon,   vkOem7:     KeyQuote,
-	vkOemComma:  KeyComma,       vkOemPeriod: KeyPeriod,
-	vkOem2:      KeySlash,
+	vkOem3: KeyBacktick, vkOemMinus: KeyMinus,
+	vkOemPlus: KeyEqual, vkOem4: KeyLeftBracket,
+	vkOem6: KeyRightBracket, vkOem5: KeyBackslash,
+	vkOem1: KeySemicolon, vkOem7: KeyQuote,
+	vkOemComma: KeyComma, vkOemPeriod: KeyPeriod,
+	vkOem2: KeySlash,
 }
 
 // Global reference for the low-level keyboard hook callback.
@@ -142,6 +176,10 @@ func NewProvider() (Provider, error) {
 }
 
 func (p *windowsProvider) Register(combo Combo) (<-chan Event, error) {
+	return p.RegisterWithOptions(combo, RegisterOptions{})
+}
+
+func (p *windowsProvider) RegisterWithOptions(combo Combo, opts RegisterOptions) (<-chan Event, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

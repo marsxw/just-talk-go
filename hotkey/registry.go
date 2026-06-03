@@ -40,6 +40,10 @@ func NewRegistry(provider Provider) *Registry {
 //
 // Returns an error if the combo is already registered.
 func (r *Registry) Register(combo Combo, handler func(Event)) error {
+	return r.RegisterWithOptions(combo, RegisterOptions{}, handler)
+}
+
+func (r *Registry) RegisterWithOptions(combo Combo, opts RegisterOptions, handler func(Event)) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -47,7 +51,7 @@ func (r *Registry) Register(combo Combo, handler func(Event)) error {
 		return fmt.Errorf("hotkey %s is already registered", combo)
 	}
 
-	ch, err := r.provider.Register(combo)
+	ch, err := r.provider.RegisterWithOptions(combo, opts)
 	if err != nil {
 		return fmt.Errorf("register hotkey %s: %w", combo, err)
 	}

@@ -45,6 +45,9 @@ type PluginEnv interface {
 	// The handler is called from the hotkey event loop; it must not block.
 	RegisterHotkey(combo hotkey.Combo, handler func(hotkey.Event)) error
 
+	// RegisterHotkeyWithOptions registers a hotkey combo with provider-specific options.
+	RegisterHotkeyWithOptions(combo hotkey.Combo, opts hotkey.RegisterOptions, handler func(hotkey.Event)) error
+
 	// UnregisterHotkey removes a previously registered hotkey.
 	UnregisterHotkey(combo hotkey.Combo) error
 

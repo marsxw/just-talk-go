@@ -246,6 +246,7 @@ type VoicePlugin struct {
 	mode                   string
 	recording              bool
 	stopping               bool
+	holdReleased           bool
 	userStopped            bool
 	stopTimer              *time.Timer
 	stopAt                 time.Time
@@ -264,6 +265,7 @@ type VoicePlugin struct {
 	errorUntil             time.Time
 	errorTimer             *time.Timer
 	lastError              string
+	flowActive             bool
 	cancelHotkeyRegistered bool
 	retryHotkeyRegistered  bool
 }
@@ -317,7 +319,7 @@ func (p *VoicePlugin) registerFromConfig(cfg *config.Config) error {
 	if !vc.Enabled {
 		p.mu.Lock()
 		oldCombo := p.combo
-		p.syncTransientHotkeysLocked(false, false)
+		p.cleanupTransientHotkeysLocked()
 		p.combo = hotkey.Combo{}
 		p.mu.Unlock()
 		if oldCombo.Key != hotkey.KeyNone || oldCombo.Mods != hotkey.ModNone {
@@ -334,10 +336,14 @@ func (p *VoicePlugin) registerFromConfig(cfg *config.Config) error {
 	if mode == "" {
 		mode = "hold"
 	}
+	if err := validateVoiceHotkey(combo); err != nil {
+		return err
+	}
 
 	p.mu.Lock()
 	oldCombo := p.combo
-	sameCombo := oldCombo == combo
+	oldMode := p.mode
+	sameRegistration := oldCombo == combo && oldMode == mode
 	p.combo = combo
 	p.mode = mode
 	p.autoSubmit = vc.AutoSubmit
@@ -347,15 +353,16 @@ func (p *VoicePlugin) registerFromConfig(cfg *config.Config) error {
 	p.logger.Info("config_reloaded", "hotkey", combo, "mode", mode,
 		"auto_submit", vc.AutoSubmit, "stop_delay_ms", vc.StopDelayMs)
 
-	if !sameCombo {
+	if !sameRegistration {
 		isOld := oldCombo.Key != hotkey.KeyNone || oldCombo.Mods != hotkey.ModNone
 		if isOld {
 			p.env.UnregisterHotkey(oldCombo)
 		}
-		if err := p.env.RegisterHotkey(combo, p.onHotkey); err != nil {
+		opts := hotkey.RegisterOptions{Suppress: mode == "hold"}
+		if err := p.env.RegisterHotkeyWithOptions(combo, opts, p.onHotkey); err != nil {
 			return fmt.Errorf("register hotkey: %w", err)
 		}
-		p.logger.Info("hotkey_registered", "combo", combo)
+		p.logger.Info("hotkey_registered", "combo", combo, "suppress", opts.Suppress)
 	}
 	return nil
 }
@@ -417,13 +424,14 @@ func (p *VoicePlugin) handleHotkey(evt hotkey.Event) {
 	switch mode {
 	case "hold":
 		if evt.Type == hotkey.KeyDown {
+			p.clearHoldReleased()
 			if stopping {
 				p.cancelStopDelay()
 			} else if !rec {
 				p.startRecording()
 			}
 		} else if evt.Type == hotkey.KeyUp {
-			p.startStopDelay()
+			p.markHoldReleased()
 		}
 	case "toggle":
 		if evt.Type != hotkey.KeyDown {
@@ -445,6 +453,7 @@ func (p *VoicePlugin) startStopDelay() {
 	if p.stopping || !p.recording {
 		return
 	}
+	p.holdReleased = false
 	p.stopping, p.userStopped = true, true
 	delay := time.Duration(p.stopDelayMs) * time.Millisecond
 	p.stopAt = time.Now().Add(delay)
@@ -462,6 +471,12 @@ func (p *VoicePlugin) cancelStopDelay() {
 }
 
 func (p *VoicePlugin) cancelStopDelayLocked() {
+	p.cancelStopDelayOnlyLocked()
+	p.holdReleased = false
+	p.publishStatusLocked()
+}
+
+func (p *VoicePlugin) cancelStopDelayOnlyLocked() {
 	if p.stopTimer != nil {
 		p.stopTimer.Stop()
 		p.stopTimer = nil
@@ -471,12 +486,27 @@ func (p *VoicePlugin) cancelStopDelayLocked() {
 	}
 	p.stopping = false
 	p.stopAt = time.Time{}
-	p.publishStatusLocked()
+}
+
+func (p *VoicePlugin) clearHoldReleased() {
+	p.mu.Lock()
+	p.holdReleased = false
+	p.mu.Unlock()
+}
+
+func (p *VoicePlugin) markHoldReleased() {
+	p.mu.Lock()
+	p.holdReleased = true
+	shouldStop := p.recording && !p.stopping
+	p.mu.Unlock()
+	if shouldStop {
+		p.startStopDelay()
+	}
 }
 
 func (p *VoicePlugin) startRecording() {
 	p.mu.Lock()
-	p.cancelStopDelayLocked()
+	p.cancelStopDelayOnlyLocked()
 	if p.recording || p.asrClient != nil {
 		p.mu.Unlock()
 		pout("⚠️  已经在录音中")
@@ -517,10 +547,14 @@ func (p *VoicePlugin) startRecording() {
 	p.stopAt = time.Time{}
 	p.clearErrorLocked()
 	p.asrCancel = cancel
+	shouldStopImmediately := p.mode == "hold" && p.holdReleased
 	p.publishStatusLocked()
 	p.mu.Unlock() // Release lock before slow WebSocket dial
 
 	go p.connectASR(ctx, cancel, sessionID, sessionGen, rec, asrCfg)
+	if shouldStopImmediately {
+		p.startStopDelay()
+	}
 }
 
 func (p *VoicePlugin) connectASR(ctx context.Context, cancel context.CancelFunc, sessionID, sessionGen uint64, rec *Recorder, asrCfg ASRConfig) {
@@ -671,6 +705,7 @@ func (p *VoicePlugin) detachRecordingLocked() *recordingSession {
 	p.recorder, p.asrClient, p.asrCancel = nil, nil, nil
 	p.startedAt = time.Time{}
 	p.recording, p.stopping, p.userStopped = false, false, false
+	p.holdReleased = false
 	return session
 }
 
@@ -830,6 +865,12 @@ func (p *VoicePlugin) publishStatusLocked() {
 
 	p.publishStatusSnapshotLocked(state, detail, recording, stopping, stopAt, p.sessionID)
 	errorActive := state == "error" && time.Now().Before(p.errorUntil)
+	wasFlowActive := p.flowActive
+	p.flowActive = state != "idle"
+	if state == "idle" && wasFlowActive {
+		p.cleanupTransientHotkeysLocked()
+		return
+	}
 	p.syncTransientHotkeysLocked(recording || stopping || p.pendingDone > 0 || errorActive, errorActive)
 }
 
@@ -876,6 +917,17 @@ func (p *VoicePlugin) clearErrorLocked() {
 	}
 	p.errorUntil = time.Time{}
 	p.lastError = ""
+}
+
+func (p *VoicePlugin) cleanupTransientHotkeysLocked() {
+	p.syncTransientHotkeysLocked(false, false)
+}
+
+func validateVoiceHotkey(combo hotkey.Combo) error {
+	if combo.Key.IsTextKey() {
+		return fmt.Errorf("语音热键不支持普通字符键 %s；请使用适合作为全局快捷键的组合，如 Alt+Super、Alt+F8、F9、Ctrl+Alt+Tab", combo)
+	}
+	return nil
 }
 
 func (p *VoicePlugin) syncTransientHotkeysLocked(needCancel, needRetry bool) {

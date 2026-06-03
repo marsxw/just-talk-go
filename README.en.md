@@ -13,6 +13,7 @@ It is built for people who want to type less and speak more while coding, chatti
 ## Features
 
 - Global hotkey recording with `toggle` and `hold` modes.
+- Voice hotkeys are limited to keys suitable for global shortcuts: modifiers, function keys, Tab, CapsLock, arrow/navigation keys, and similar non-text keys. Letters, digits, punctuation, Space, and other text-producing keys are rejected.
 - Doubao streaming ASR with optimized bidirectional streaming and second-pass recognition.
 - Clipboard copy and automatic text submission.
 - Always-on-top recording status overlay for Wayland, X11, and macOS.
@@ -96,6 +97,23 @@ Default config path:
 ```text
 ~/.config/just-talk/config.toml
 ```
+
+Recommended hotkey config:
+
+```toml
+[voice]
+mode = "toggle"
+push_to_talk = "Alt+Super"
+```
+
+`Alt+Super` with `toggle` mode is recommended. Press once to start recording, then press again to stop. This avoids hold-mode key conflicts with desktop environments or focused input fields.
+
+Voice hotkeys only support keys suitable for global shortcuts:
+
+- Supported: modifier-only combinations, such as `Alt+Super` and `Ctrl+Alt+Shift`.
+- Supported: function keys `F1` through `F24`, such as `F9` and `Alt+F8`.
+- Supported: non-text control and navigation keys, such as `Tab`, `Enter`, `Escape`, `Backspace`, `CapsLock`, `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, and `Delete`.
+- Not supported: letters, digits, punctuation, Space, numpad digits, and numpad symbols that can enter text, such as `Alt+G`, `G`, `Alt+1`, and `Alt+Space`.
 
 Hotword example:
 

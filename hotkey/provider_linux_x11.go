@@ -160,6 +160,10 @@ func newX11Provider() (Provider, error) {
 }
 
 func (p *x11Provider) Register(combo Combo) (<-chan Event, error) {
+	return p.RegisterWithOptions(combo, RegisterOptions{})
+}
+
+func (p *x11Provider) RegisterWithOptions(combo Combo, opts RegisterOptions) (<-chan Event, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

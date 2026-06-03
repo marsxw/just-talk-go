@@ -3,12 +3,13 @@ package hotkey
 // KeyCode constants provide a cross-platform unified key code namespace.
 //
 // The codes are organized in blocks:
-//   0        - KeyNone (reserved)
-//   1..255   - Regular keys (A-Z, 0-9, punctuation — mapped to platform scan/virtual codes)
-//   256..289  - Modifier virtual keys (Ctrl, Alt, Shift, Super)
-//   290..313  - Function keys (F1-F24)
-//   314..349  - Navigation keys (arrows, home, end, etc.)
-//   350..    - Reserved for future expansion
+//
+//	0        - KeyNone (reserved)
+//	1..255   - Regular keys (A-Z, 0-9, punctuation — mapped to platform scan/virtual codes)
+//	256..289  - Modifier virtual keys (Ctrl, Alt, Shift, Super)
+//	290..313  - Function keys (F1-F24)
+//	314..349  - Navigation keys (arrows, home, end, etc.)
+//	350..    - Reserved for future expansion
 const (
 	KeyNone KeyCode = 0
 )
@@ -73,32 +74,32 @@ const (
 
 const (
 	// ---- Punctuation & symbols (47..65) ----
-	KeySpace      KeyCode = 47
-	KeyBacktick   KeyCode = 48 // `
-	KeyMinus      KeyCode = 49 // -
-	KeyEqual      KeyCode = 50 // =
+	KeySpace        KeyCode = 47
+	KeyBacktick     KeyCode = 48 // `
+	KeyMinus        KeyCode = 49 // -
+	KeyEqual        KeyCode = 50 // =
 	KeyLeftBracket  KeyCode = 51 // [
 	KeyRightBracket KeyCode = 52 // ]
-	KeyBackslash  KeyCode = 53 // \
-	KeySemicolon  KeyCode = 54 // ;
-	KeyQuote      KeyCode = 55 // '
-	KeyComma      KeyCode = 56 // ,
-	KeyPeriod     KeyCode = 57 // .
-	KeySlash      KeyCode = 58 // /
-	KeyTab        KeyCode = 59
-	KeyEnter      KeyCode = 60
-	KeyEscape     KeyCode = 61
-	KeyBackspace  KeyCode = 62
-	KeyCapsLock   KeyCode = 63
-	KeyPrintScreen KeyCode = 64
-	KeyScrollLock KeyCode = 65
-	KeyPause      KeyCode = 66
-	KeyInsert     KeyCode = 67
-	KeyDelete     KeyCode = 68
-	KeyHome       KeyCode = 69
-	KeyEnd        KeyCode = 70
-	KeyPageUp     KeyCode = 71
-	KeyPageDown   KeyCode = 72
+	KeyBackslash    KeyCode = 53 // \
+	KeySemicolon    KeyCode = 54 // ;
+	KeyQuote        KeyCode = 55 // '
+	KeyComma        KeyCode = 56 // ,
+	KeyPeriod       KeyCode = 57 // .
+	KeySlash        KeyCode = 58 // /
+	KeyTab          KeyCode = 59
+	KeyEnter        KeyCode = 60
+	KeyEscape       KeyCode = 61
+	KeyBackspace    KeyCode = 62
+	KeyCapsLock     KeyCode = 63
+	KeyPrintScreen  KeyCode = 64
+	KeyScrollLock   KeyCode = 65
+	KeyPause        KeyCode = 66
+	KeyInsert       KeyCode = 67
+	KeyDelete       KeyCode = 68
+	KeyHome         KeyCode = 69
+	KeyEnd          KeyCode = 70
+	KeyPageUp       KeyCode = 71
+	KeyPageDown     KeyCode = 72
 )
 
 const (
@@ -174,32 +175,32 @@ var keyNames = map[KeyCode]string{
 	KeyNum0: "Num0", KeyNum1: "Num1", KeyNum2: "Num2", KeyNum3: "Num3", KeyNum4: "Num4",
 	KeyNum5: "Num5", KeyNum6: "Num6", KeyNum7: "Num7", KeyNum8: "Num8", KeyNum9: "Num9",
 
-	KeySpace:      "Space",
-	KeyBacktick:   "`",
-	KeyMinus:      "-",
-	KeyEqual:      "=",
+	KeySpace:        "Space",
+	KeyBacktick:     "`",
+	KeyMinus:        "-",
+	KeyEqual:        "=",
 	KeyLeftBracket:  "[",
 	KeyRightBracket: "]",
-	KeyBackslash:  "\\",
-	KeySemicolon:  ";",
-	KeyQuote:      "'",
-	KeyComma:      ",",
-	KeyPeriod:     ".",
-	KeySlash:      "/",
-	KeyTab:        "Tab",
-	KeyEnter:      "Enter",
-	KeyEscape:     "Escape",
-	KeyBackspace:  "Backspace",
-	KeyCapsLock:   "CapsLock",
-	KeyPrintScreen: "PrintScreen",
-	KeyScrollLock: "ScrollLock",
-	KeyPause:      "Pause",
-	KeyInsert:     "Insert",
-	KeyDelete:     "Delete",
-	KeyHome:       "Home",
-	KeyEnd:        "End",
-	KeyPageUp:     "PageUp",
-	KeyPageDown:   "PageDown",
+	KeyBackslash:    "\\",
+	KeySemicolon:    ";",
+	KeyQuote:        "'",
+	KeyComma:        ",",
+	KeyPeriod:       ".",
+	KeySlash:        "/",
+	KeyTab:          "Tab",
+	KeyEnter:        "Enter",
+	KeyEscape:       "Escape",
+	KeyBackspace:    "Backspace",
+	KeyCapsLock:     "CapsLock",
+	KeyPrintScreen:  "PrintScreen",
+	KeyScrollLock:   "ScrollLock",
+	KeyPause:        "Pause",
+	KeyInsert:       "Insert",
+	KeyDelete:       "Delete",
+	KeyHome:         "Home",
+	KeyEnd:          "End",
+	KeyPageUp:       "PageUp",
+	KeyPageDown:     "PageDown",
 
 	KeyArrowUp:    "Up",
 	KeyArrowDown:  "Down",
@@ -219,9 +220,9 @@ var keyNames = map[KeyCode]string{
 	KeyShift: "Shift",
 	KeySuper: "Super",
 
-	KeyF1:  "F1",  KeyF2:  "F2",  KeyF3:  "F3",  KeyF4:  "F4",
-	KeyF5:  "F5",  KeyF6:  "F6",  KeyF7:  "F7",  KeyF8:  "F8",
-	KeyF9:  "F9",  KeyF10: "F10", KeyF11: "F11", KeyF12: "F12",
+	KeyF1: "F1", KeyF2: "F2", KeyF3: "F3", KeyF4: "F4",
+	KeyF5: "F5", KeyF6: "F6", KeyF7: "F7", KeyF8: "F8",
+	KeyF9: "F9", KeyF10: "F10", KeyF11: "F11", KeyF12: "F12",
 	KeyF13: "F13", KeyF14: "F14", KeyF15: "F15", KeyF16: "F16",
 	KeyF17: "F17", KeyF18: "F18", KeyF19: "F19", KeyF20: "F20",
 	KeyF21: "F21", KeyF22: "F22", KeyF23: "F23", KeyF24: "F24",
@@ -243,6 +244,29 @@ func (k KeyCode) IsModifier() bool {
 // IsFunctionKey returns true if the key code is a function key (F1-F24).
 func (k KeyCode) IsFunctionKey() bool {
 	return k >= KeyF1 && k <= KeyF24
+}
+
+// IsTextKey returns true for keys that normally produce text when pressed in
+// a focused input field.
+func (k KeyCode) IsTextKey() bool {
+	if k >= KeyA && k <= KeyZ {
+		return true
+	}
+	if k >= Key0 && k <= Key9 {
+		return true
+	}
+	if k >= KeyNum0 && k <= KeyNum9 {
+		return true
+	}
+	switch k {
+	case KeySpace, KeyBacktick, KeyMinus, KeyEqual,
+		KeyLeftBracket, KeyRightBracket, KeyBackslash,
+		KeySemicolon, KeyQuote, KeyComma, KeyPeriod, KeySlash,
+		KeyNumMultiply, KeyNumAdd, KeyNumSubtract, KeyNumDivide, KeyNumDecimal:
+		return true
+	default:
+		return false
+	}
 }
 
 // KeyCodeToModifier converts a modifier KeyCode to the corresponding Modifier bit.

@@ -23,9 +23,6 @@ const (
 	keyRelease = 0
 	keyPress   = 1
 	keyRepeat  = 2
-
-	// evdev grab ioctl
-	eviocGrab = 0x40044590
 )
 
 // input_event struct as defined in <linux/input.h>
@@ -109,6 +106,10 @@ func newWaylandProvider() (Provider, error) {
 }
 
 func (p *waylandProvider) Register(combo Combo) (<-chan Event, error) {
+	return p.RegisterWithOptions(combo, RegisterOptions{})
+}
+
+func (p *waylandProvider) RegisterWithOptions(combo Combo, opts RegisterOptions) (<-chan Event, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -121,6 +122,7 @@ func (p *waylandProvider) Register(combo Combo) (<-chan Event, error) {
 
 	ch := make(chan Event, 32)
 	p.channels[combo] = ch
+	_ = opts
 	p.tracker.Watch(combo, ch)
 	return ch, nil
 }
@@ -152,9 +154,9 @@ func (p *waylandProvider) Start(ctx context.Context) error {
 
 	p.logger.Info("found keyboard devices", "count", len(devices), "devices", devices)
 
-	// Open keyboard devices for passive reads. Do not EVIOCGRAB here: grabbing
-	// steals the keyboard from the compositor, which is not acceptable under
-	// Sway/Wayland for a background hotkey listener.
+	// Open keyboard devices for passive reads. Do not EVIOCGRAB on modifier
+	// prefixes: grabbing after Alt is already down can hide the matching
+	// physical Alt release from the compositor and leave the modifier stuck.
 	for _, dev := range devices {
 		fd, err := unix.Open(dev, unix.O_RDONLY|unix.O_NONBLOCK, 0)
 		if err != nil {
@@ -177,39 +179,62 @@ func (p *waylandProvider) Start(ctx context.Context) error {
 }
 
 func (p *waylandProvider) readLoop(ctx context.Context) error {
-	buf := make([]byte, unsafe.Sizeof(inputEvent{}))
+	wakeFds := []int{-1, -1}
+	if err := unix.Pipe2(wakeFds, unix.O_NONBLOCK|unix.O_CLOEXEC); err != nil {
+		return fmt.Errorf("create wake pipe: %w", err)
+	}
+	defer unix.Close(wakeFds[0])
+	defer unix.Close(wakeFds[1])
+
+	go func() {
+		<-ctx.Done()
+		_, _ = unix.Write(wakeFds[1], []byte{1})
+	}()
 
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		// Poll each device
+		pollFds := make([]unix.PollFd, 0, len(p.deviceFds)+1)
 		for _, fd := range p.deviceFds {
-			n, err := unix.Read(fd, buf)
-			if err != nil {
-				if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-					continue
-				}
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
+			pollFds = append(pollFds, unix.PollFd{Fd: int32(fd), Events: unix.POLLIN})
+		}
+		pollFds = append(pollFds, unix.PollFd{Fd: int32(wakeFds[0]), Events: unix.POLLIN})
+
+		if _, err := unix.Poll(pollFds, -1); err != nil {
+			if err == unix.EINTR {
 				continue
 			}
-
-			if n < int(unsafe.Sizeof(inputEvent{})) {
-				continue
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-
-			evt := (*inputEvent)(unsafe.Pointer(&buf[0]))
-			p.processEvent(evt)
+			return fmt.Errorf("poll keyboard devices: %w", err)
+		}
+		if pollFds[len(pollFds)-1].Revents&unix.POLLIN != 0 {
+			return ctx.Err()
 		}
 
-		// Small sleep to avoid busy-waiting
-		// In a production implementation, we'd use epoll/poll instead
-		time.Sleep(1 * time.Millisecond)
+		for i, fd := range p.deviceFds {
+			if pollFds[i].Revents&(unix.POLLIN|unix.POLLHUP|unix.POLLERR) == 0 {
+				continue
+			}
+			p.readAvailableEvents(ctx, fd)
+		}
+	}
+}
+
+func (p *waylandProvider) readAvailableEvents(ctx context.Context, fd int) {
+	buf := make([]byte, unsafe.Sizeof(inputEvent{}))
+	for {
+		n, err := unix.Read(fd, buf)
+		if err != nil {
+			if err == unix.EAGAIN || err == unix.EWOULDBLOCK || ctx.Err() != nil {
+				return
+			}
+			return
+		}
+		if n < int(unsafe.Sizeof(inputEvent{})) {
+			return
+		}
+		evt := (*inputEvent)(unsafe.Pointer(&buf[0]))
+		p.processEvent(evt)
 	}
 }
 
@@ -225,6 +250,9 @@ func (p *waylandProvider) processEvent(evt *inputEvent) {
 
 	now := time.Now()
 
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	var events []Event
 	switch evt.Value {
 	case keyPress:
@@ -235,10 +263,6 @@ func (p *waylandProvider) processEvent(evt *inputEvent) {
 		// Ignore auto-repeat for now
 		return
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	for _, e := range events {
 		if ch, ok := p.channels[e.Combo]; ok {
 			select {
@@ -280,7 +304,6 @@ func (p *waylandProvider) Info() ProviderInfo {
 		Features: []string{
 			FeatureKeyDown, FeatureKeyUp, FeatureKeyPress,
 			FeatureModifierOnly, FeatureFunctionKey, FeatureCombo,
-			FeatureSuppressEvent,
 		},
 	}
 }

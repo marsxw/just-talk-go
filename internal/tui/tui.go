@@ -70,7 +70,7 @@ func New(cfg *config.Config) *Model {
 	ti := func(v string) textinput.Model { t := textinput.New(); t.SetValue(v); t.Cursor.Blink = false; return t }
 	fs := []field{
 		{label: "语音输入", key: "enabled", help: "关闭后不注册热键", fType: fToggle, boolVal: vc.Enabled},
-		{label: "热键", key: "push_to_talk", help: "例: Alt+Super；macOS: Option=Alt, Command/Cmd=Super", fType: fString, input: ti(vc.PushToTalk)},
+		{label: "热键", key: "push_to_talk", help: "例: Alt+Super / F9 / Ctrl+Alt+Tab；不支持字母、数字、标点、空格等普通字符键", fType: fString, input: ti(vc.PushToTalk)},
 		{label: "模式", key: "mode", help: "toggle 切换 / hold 按住", fType: fSelect, opts: []string{"toggle", "hold"}, optIdx: idxOf([]string{"toggle", "hold"}, vc.Mode)},
 		{label: "App Key", key: "app_key", help: "火山 App ID", fType: fString, input: ti(vc.AppKey)},
 		{label: "Access Key", key: "access_key", help: "火山 Access Token", fType: fString, input: ti(vc.AccessKey)},
@@ -209,7 +209,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 func (m *Model) save() {
-	vc := &m.cfg.Voice
+	next := *m.cfg
+	vc := &next.Voice
 	for _, f := range m.fields {
 		switch f.key {
 		case "enabled":
@@ -230,6 +231,19 @@ func (m *Model) save() {
 			vc.Hotwords = splitList(f.input.Value())
 		}
 	}
+	combo, err := config.ParseHotkey(vc.PushToTalk)
+	if err != nil {
+		m.logf("❌ 热键格式错误: %s", err)
+		m.restorePushToTalkField()
+		return
+	}
+	if combo.Key.IsTextKey() {
+		m.logf("❌ 热键不支持普通字符键: %s", combo)
+		m.logf("   请使用 Alt+Super、F9、Alt+F8、Ctrl+Alt+Tab 等全局快捷键")
+		m.restorePushToTalkField()
+		return
+	}
+	m.cfg = &next
 	if err := config.Save(m.cfg); err != nil {
 		m.logf("保存失败: %s", err)
 	} else {
@@ -241,6 +255,25 @@ func (m *Model) save() {
 			m.logf("❌ 热键注册失败: %s", err)
 		}
 	}
+}
+
+func (m *Model) restorePushToTalkField() {
+	value := m.cfg.Voice.PushToTalk
+	if !validVoiceHotkeyString(value) {
+		value = config.Default().Voice.PushToTalk
+	}
+	for i := range m.fields {
+		if m.fields[i].key == "push_to_talk" {
+			m.fields[i].input.SetValue(value)
+			break
+		}
+	}
+	m.logf("↩️  热键已恢复为 %s", value)
+}
+
+func validVoiceHotkeyString(value string) bool {
+	combo, err := config.ParseHotkey(value)
+	return err == nil && !combo.Key.IsTextKey()
 }
 
 func splitList(s string) []string {

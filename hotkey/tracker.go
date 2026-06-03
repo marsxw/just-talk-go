@@ -38,6 +38,13 @@ type KeyStateTracker struct {
 	// Modifier-only combos that are currently active.
 	activeModifierCombos map[Combo]bool
 
+	// Key-only combos that have fired KeyDown and are waiting for release.
+	activeSoloCombos map[Combo]bool
+
+	// Standard modifier+key combos that have fired KeyDown and are waiting
+	// for the non-modifier key release.
+	activeStandardCombos map[Combo]bool
+
 	// Per-key listener: keys that, when pressed alone (no other keys),
 	// should fire an event. Used for modifier-only and key-only hotkeys.
 	soloWatch map[KeyCode]Combo
@@ -54,6 +61,8 @@ func NewKeyStateTracker() *KeyStateTracker {
 		pressed:              make(map[KeyCode]keyState),
 		watched:              make(map[Combo]chan<- Event),
 		activeModifierCombos: make(map[Combo]bool),
+		activeSoloCombos:     make(map[Combo]bool),
+		activeStandardCombos: make(map[Combo]bool),
 		soloWatch:            make(map[KeyCode]Combo),
 	}
 }
@@ -81,6 +90,8 @@ func (t *KeyStateTracker) Unwatch(combo Combo) {
 
 	delete(t.watched, combo)
 	delete(t.activeModifierCombos, combo)
+	delete(t.activeSoloCombos, combo)
+	delete(t.activeStandardCombos, combo)
 
 	if combo.IsModifierOnly() {
 		return
@@ -117,9 +128,20 @@ func (t *KeyStateTracker) KeyDown(key KeyCode, now time.Time) []Event {
 	if !key.IsModifier() {
 		combo := Combo{Mods: t.activeMods, Key: key}
 		if _, ok := t.watched[combo]; ok {
+			t.activeStandardCombos[combo] = true
 			events = append(events, Event{Combo: combo, Type: KeyDown, Time: now})
 		}
 	} else {
+		for pressedKey := range t.pressed {
+			if pressedKey.IsModifier() {
+				continue
+			}
+			combo := Combo{Mods: t.activeMods, Key: pressedKey}
+			if _, ok := t.watched[combo]; ok && !t.activeStandardCombos[combo] {
+				t.activeStandardCombos[combo] = true
+				events = append(events, Event{Combo: combo, Type: KeyDown, Time: now})
+			}
+		}
 		for combo, active := range t.activeModifierCombos {
 			if active {
 				continue
@@ -133,7 +155,8 @@ func (t *KeyStateTracker) KeyDown(key KeyCode, now time.Time) []Event {
 
 	// Check solo watched combos that are NOT modifier-only
 	// (key-only combos fire on KeyDown)
-	if combo, ok := t.soloWatch[key]; ok && !combo.IsModifierOnly() {
+	if combo, ok := t.soloWatch[key]; ok && !combo.IsModifierOnly() && t.activeMods == ModNone {
+		t.activeSoloCombos[combo] = true
 		events = append(events, Event{Combo: combo, Type: KeyDown, Time: now})
 	}
 
@@ -156,16 +179,19 @@ func (t *KeyStateTracker) KeyUp(key KeyCode, now time.Time) []Event {
 		t.activeMods &^= mod
 	}
 
-	// Fire KeyUp for watched combos (non-modifier keys)
-	if !key.IsModifier() {
-		combo := Combo{Mods: t.activeMods, Key: key}
-		if _, ok := t.watched[combo]; ok {
+	// Fire KeyUp for active standard combos as soon as any member of the
+	// combo is released. Hold-mode users expect recording to stop when they
+	// release either the character key or any required modifier.
+	for combo, active := range t.activeStandardCombos {
+		if active && comboReleasedByKey(combo, key) {
+			delete(t.activeStandardCombos, combo)
 			events = append(events, Event{Combo: combo, Type: KeyUp, Time: now})
 		}
 	}
 
 	// Fire KeyUp for key-only solo watches
-	if combo, ok := t.soloWatch[key]; ok && !combo.IsModifierOnly() {
+	if combo, ok := t.soloWatch[key]; ok && !combo.IsModifierOnly() && t.activeSoloCombos[combo] {
+		delete(t.activeSoloCombos, combo)
 		events = append(events, Event{Combo: combo, Type: KeyUp, Time: now})
 	}
 
@@ -219,6 +245,8 @@ func (t *KeyStateTracker) Reset() {
 	for combo := range t.activeModifierCombos {
 		t.activeModifierCombos[combo] = false
 	}
+	t.activeSoloCombos = make(map[Combo]bool)
+	t.activeStandardCombos = make(map[Combo]bool)
 	t.activeMods = ModNone
 	t.lastNonModKey = KeyNone
 }
@@ -252,4 +280,14 @@ func (t *KeyStateTracker) modifierToKeyCode(mods Modifier) []KeyCode {
 		keys = append(keys, KeySuper)
 	}
 	return keys
+}
+
+func comboReleasedByKey(combo Combo, key KeyCode) bool {
+	if combo.Key == key {
+		return true
+	}
+	if mod := KeyCodeToModifier(key); mod != ModNone {
+		return combo.Mods&mod != 0
+	}
+	return false
 }
