@@ -56,12 +56,15 @@ xcode-select --install
 Build for the current platform:
 
 ```bash
+cd just-talk-go
 CGO_ENABLED=1 go build -o build/just-talk ./cmd/just-talk
 ```
 
 Install to `~/.local/bin/just-talk`:
 
 ```bash
+# Make sure ~/.local/bin is in PATH. If not, add this line to ~/.bashrc or ~/.zshrc.
+# export PATH="$HOME/.local/bin:$PATH"
 build/just-talk --install
 # or
 make install

@@ -56,12 +56,15 @@ xcode-select --install
 构建当前平台二进制：
 
 ```bash
+cd just-talk-go
 CGO_ENABLED=1 go build -o build/just-talk ./cmd/just-talk
 ```
 
 安装到 `~/.local/bin/just-talk`：
 
 ```bash
+# 确保 ~/.local/bin 在 PATH 中（如未配置，将下面这行加入 ~/.bashrc 或 ~/.zshrc）
+# export PATH="$HOME/.local/bin:$PATH"
 build/just-talk --install
 # 或
 make install
