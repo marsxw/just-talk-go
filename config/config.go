@@ -23,7 +23,6 @@ type DebugConfig struct {
 
 type OverlayConfig struct {
 	Enabled     bool    `toml:"enabled"`
-	LiveText    bool    `toml:"live_text"`
 	Position    string  `toml:"position"`
 	IdleVisible bool    `toml:"idle_visible"`
 	Scale       float64 `toml:"scale"`
@@ -51,7 +50,7 @@ func Default() *Config {
 			Language: "zh-CN", AutoSubmit: true, ResourceID: "volc.bigasr.sauc.duration",
 		},
 		Overlay: OverlayConfig{
-			Enabled: true, LiveText: true, Position: "bottom-center", IdleVisible: false, Scale: 1.0,
+			Enabled: true, Position: "bottom-center", IdleVisible: false, Scale: 1.0,
 		},
 	}
 }

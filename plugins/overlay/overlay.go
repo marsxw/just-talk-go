@@ -105,16 +105,16 @@ func displayForStatus(status voice.TUIVoiceStatus, cfg config.OverlayConfig) (st
 	}
 	switch status.State {
 	case "connecting":
-		return overlayLabel(status, cfg, statusColor{R: 245 << 8, G: 190 << 8, B: 70 << 8}, true)
+		return overlayLabel(status, scale, statusColor{R: 245 << 8, G: 190 << 8, B: 70 << 8}, true)
 	case "recording":
-		return overlayLabel(status, cfg, statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true)
+		return overlayLabel(status, scale, statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true)
 	case "stopping_delayed":
-		return overlayLabel(status, cfg, statusColor{R: 255 << 8, G: 140 << 8, B: 60 << 8}, true)
+		return overlayLabel(status, scale, statusColor{R: 255 << 8, G: 140 << 8, B: 60 << 8}, true)
 	case "stopping":
-		return overlayLabel(status, cfg, statusColor{R: 255 << 8, G: 160 << 8, B: 70 << 8}, true)
+		return overlayLabel(status, scale, statusColor{R: 255 << 8, G: 160 << 8, B: 70 << 8}, true)
 	case "error":
 		text := strings.TrimSpace(status.LiveText)
-		if cfg.LiveText && text != "" {
+		if text != "" {
 			return FormatOverlayText(text, scale), statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true
 		}
 		return "", statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true
@@ -123,15 +123,9 @@ func displayForStatus(status voice.TUIVoiceStatus, cfg config.OverlayConfig) (st
 	}
 }
 
-func overlayLabel(status voice.TUIVoiceStatus, cfg config.OverlayConfig, color statusColor, visible bool) (string, statusColor, bool) {
-	if cfg.LiveText {
-		if text := strings.TrimSpace(status.LiveText); text != "" {
-			scale := cfg.Scale
-			if scale <= 0 {
-				scale = 1
-			}
-			return FormatOverlayText(text, scale), color, visible
-		}
+func overlayLabel(status voice.TUIVoiceStatus, scale float64, color statusColor, visible bool) (string, statusColor, bool) {
+	if text := strings.TrimSpace(status.LiveText); text != "" {
+		return FormatOverlayText(text, scale), color, visible
 	}
 	return "", color, visible
 }

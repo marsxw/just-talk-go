@@ -80,8 +80,7 @@ func New(cfg *config.Config) *Model {
 		{label: "自动上屏", key: "auto_submit", help: "识别后自动粘贴到当前输入框；关闭则只写入剪贴板", fType: fToggle, boolVal: vc.AutoSubmit},
 		{label: "停止延迟(ms)", key: "stop_delay_ms", help: "松手后补录毫秒", fType: fString, input: ti(fmt.Sprintf("%d", vc.StopDelayMs))},
 		{label: "热词", key: "hotwords", help: "逗号分隔术语", fType: fString, input: ti(strings.Join(vc.Hotwords, ", "))},
-		{label: "屏幕胶囊", key: "overlay_enabled", section: "overlay", help: "录音时在屏幕上显示状态胶囊", fType: fToggle, boolVal: oc.Enabled},
-		{label: "实时字幕", key: "overlay_live_text", section: "overlay", help: "录音时在屏幕胶囊显示 ASR 识别文字", fType: fToggle, boolVal: oc.LiveText},
+		{label: "屏幕胶囊", key: "overlay_enabled", section: "overlay", help: "录音时在屏幕上显示状态胶囊和实时识别文字", fType: fToggle, boolVal: oc.Enabled},
 		{label: "胶囊位置", key: "overlay_position", section: "overlay", help: "屏幕胶囊位置；修改后需重启 just-talk", fType: fSelect, opts: positions, optIdx: idxOf(positions, defaultOverlayPosition(oc.Position))},
 	}
 	return &Model{cfg: cfg, fields: fs, logs: make([]string, 0, 100), cursor: -1, showLogs: true}
@@ -251,8 +250,6 @@ func (m *Model) save() {
 			vc.Hotwords = splitList(f.input.Value())
 		case "overlay_enabled":
 			oc.Enabled = f.boolVal
-		case "overlay_live_text":
-			oc.LiveText = f.boolVal
 		case "overlay_position":
 			oc.Position = f.opts[f.optIdx]
 		}

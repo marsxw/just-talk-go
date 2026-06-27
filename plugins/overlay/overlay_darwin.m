@@ -127,8 +127,9 @@ static void jt_overlay_resize_for_label(jt_overlay_t *overlay, NSString *text) {
 	CGFloat pad = 14.0 * scale;
 	CGFloat dotSize = 14.0 * scale;
 	if ([text length] == 0) {
-		CGFloat w = dotSize + pad * 2.0;
-		CGFloat h = fmax(42.0 * scale, dotSize + pad * 2.0);
+		CGFloat lineH = 14.0 * scale * 1.2;
+		CGFloat w = 122.0 * scale;
+		CGFloat h = fmax(42.0 * scale, lineH + pad * 2.0);
 		[overlay->panel setContentSize:NSMakeSize(w, h)];
 		[overlay->view setFrame:NSMakeRect(0, 0, w, h)];
 		return;

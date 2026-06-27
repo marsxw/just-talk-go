@@ -27,11 +27,8 @@ func layoutPill(label string, scale float64) pillLayout {
 	hasText := len(lines) > 0
 
 	if !hasText {
-		width := dotSize + pad*2
-		height := scaledInt(basePillH, scale)
-		if dotSize+pad*2 > height {
-			height = dotSize + pad*2
-		}
+		width := scaledInt(basePillW, scale)
+		height := pillContentHeight(1, "", scale)
 		dotX := pad
 		dotY := (height - dotSize) / 2
 		return pillLayout{
@@ -61,10 +58,7 @@ func layoutPill(label string, scale float64) pillLayout {
 		width = maxW
 	}
 
-	height := scaledInt(basePillH, scale)
-	if textH+pad*2 > height {
-		height = textH + pad*2
-	}
+	height := pillContentHeight(len(lines), lines[0], scale)
 
 	dotX := pad
 	dotY := (height - dotSize) / 2
@@ -91,6 +85,24 @@ func nonEmptyOverlayLines(label string) []string {
 		}
 	}
 	return lines
+}
+
+// pillContentHeight returns the pill height for the given number of text lines.
+// An empty firstLine uses CJK metrics so the idle pill matches one live caption line.
+func pillContentHeight(lineCount int, firstLine string, scale float64) int {
+	pad := scaledInt(14, scale)
+	height := scaledInt(basePillH, scale)
+	if lineCount < 1 {
+		lineCount = 1
+	}
+	if firstLine == "" {
+		firstLine = "中"
+	}
+	lineHeight := overlayTextLineHeight(firstLine, scale)
+	if textH := lineHeight*lineCount + pad*2; textH > height {
+		height = textH
+	}
+	return height
 }
 
 func drawPillCanvas(w, h int, label string, color statusColor, scale float64) *argbCanvas {
