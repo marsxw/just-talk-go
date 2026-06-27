@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	defaultStopDelayMs = 800
-	errorHoldDuration  = 10 * time.Second
+	defaultStopDelayMs   = 800
+	defaultMaxRecordSecs = 30
+	errorHoldDuration    = 10 * time.Second
 )
 
 var (
@@ -265,6 +266,9 @@ type VoicePlugin struct {
 	asrCancel              context.CancelFunc
 	autoSubmit             bool
 	stopDelayMs            int
+	maxRecordSecs          int
+	maxRecordTimer         *time.Timer
+	maxRecordDeadline      time.Time
 	pendingDone            int
 	finishingSessions      map[uint64]struct{}
 	canceledSessions       map[uint64]struct{}
@@ -287,7 +291,9 @@ type recordingSession struct {
 	startedAt   time.Time
 }
 
-func NewVoicePlugin() *VoicePlugin     { return &VoicePlugin{stopDelayMs: defaultStopDelayMs} }
+func NewVoicePlugin() *VoicePlugin {
+	return &VoicePlugin{stopDelayMs: defaultStopDelayMs, maxRecordSecs: defaultMaxRecordSecs}
+}
 func (p *VoicePlugin) Name() string    { return "voice" }
 func (p *VoicePlugin) Version() string { return "0.6.0" }
 
@@ -355,10 +361,14 @@ func (p *VoicePlugin) registerFromConfig(cfg *config.Config) error {
 	p.mode = mode
 	p.autoSubmit = vc.AutoSubmit
 	p.stopDelayMs = vc.StopDelayMs
+	p.maxRecordSecs = vc.MaxRecordSecs
+	if p.maxRecordSecs < 0 {
+		p.maxRecordSecs = 0
+	}
 	p.mu.Unlock()
 
 	p.logger.Info("config_reloaded", "hotkey", combo, "mode", mode,
-		"auto_submit", vc.AutoSubmit, "stop_delay_ms", vc.StopDelayMs)
+		"auto_submit", vc.AutoSubmit, "stop_delay_ms", vc.StopDelayMs, "max_record_secs", p.maxRecordSecs)
 
 	if !sameRegistration {
 		isOld := oldCombo.Key != hotkey.KeyNone || oldCombo.Mods != hotkey.ModNone
@@ -515,6 +525,7 @@ func (p *VoicePlugin) startStopDelay() {
 	p.stopping, p.userStopped = true, true
 	delay := time.Duration(p.stopDelayMs) * time.Millisecond
 	p.stopAt = time.Now().Add(delay)
+	p.stopMaxRecordTimerLocked()
 	p.stopTimer = time.AfterFunc(delay, func() {
 		p.stopRecordingAsync()
 	})
@@ -531,6 +542,7 @@ func (p *VoicePlugin) cancelStopDelay() {
 func (p *VoicePlugin) cancelStopDelayLocked() {
 	p.cancelStopDelayOnlyLocked()
 	p.holdReleased = false
+	p.startMaxRecordTimerLocked()
 	p.publishStatusLocked()
 }
 
@@ -560,6 +572,49 @@ func (p *VoicePlugin) markHoldReleased() {
 	if shouldStop {
 		p.startStopDelay()
 	}
+}
+
+func (p *VoicePlugin) startMaxRecordTimerLocked() {
+	p.stopMaxRecordTimerLocked()
+	if p.maxRecordSecs <= 0 || !p.recording {
+		return
+	}
+	if p.maxRecordDeadline.IsZero() {
+		p.maxRecordDeadline = p.startedAt.Add(time.Duration(p.maxRecordSecs) * time.Second)
+	}
+	remaining := time.Until(p.maxRecordDeadline)
+	if remaining <= 0 {
+		go p.onMaxRecordDuration()
+		return
+	}
+	p.maxRecordTimer = time.AfterFunc(remaining, func() {
+		p.onMaxRecordDuration()
+	})
+}
+
+func (p *VoicePlugin) stopMaxRecordTimerLocked() {
+	if p.maxRecordTimer != nil {
+		p.maxRecordTimer.Stop()
+		p.maxRecordTimer = nil
+	}
+}
+
+func (p *VoicePlugin) clearMaxRecordDeadlineLocked() {
+	p.stopMaxRecordTimerLocked()
+	p.maxRecordDeadline = time.Time{}
+}
+
+func (p *VoicePlugin) onMaxRecordDuration() {
+	p.mu.Lock()
+	if !p.recording || p.stopping {
+		p.mu.Unlock()
+		return
+	}
+	p.userStopped = true
+	secs := p.maxRecordSecs
+	p.mu.Unlock()
+	pout("🎤 已达最长录音时长 (%ds)，自动停止", secs)
+	p.stopRecordingAsync()
 }
 
 func (p *VoicePlugin) startRecording() {
@@ -606,6 +661,7 @@ func (p *VoicePlugin) startRecording() {
 	p.clearErrorLocked()
 	p.asrCancel = cancel
 	shouldStopImmediately := p.mode == "hold" && p.holdReleased
+	p.startMaxRecordTimerLocked()
 	p.publishStatusLocked()
 	p.mu.Unlock() // Release lock before slow WebSocket dial
 
@@ -628,6 +684,7 @@ func (p *VoicePlugin) connectASR(ctx context.Context, cancel context.CancelFunc,
 			p.stopping, p.recorder, p.recording = false, nil, false
 			p.stopAt = time.Time{}
 			p.asrCancel = nil
+			p.clearMaxRecordDeadlineLocked()
 			if !wasCanceled {
 				p.publishErrorLocked("ASR 连接失败: "+asrConnectErrorDetail(err), sessionID)
 			} else {
@@ -749,6 +806,7 @@ func (p *VoicePlugin) detachRecordingLocked() *recordingSession {
 		p.stopTimer.Stop()
 		p.stopTimer = nil
 	}
+	p.clearMaxRecordDeadlineLocked()
 	p.stopAt = time.Time{}
 	if p.recorder == nil && p.asrClient == nil && p.asrCancel == nil {
 		p.recording, p.stopping, p.userStopped = false, false, false

@@ -17,7 +17,7 @@ It is built for people who want to type less and speak more while coding, chatti
 - Doubao streaming ASR with optimized bidirectional streaming and second-pass recognition.
 - Clipboard copy and automatic text submission.
 - Always-on-top recording status overlay for Wayland, X11, and macOS, with live ASR transcript text while recording.
-- TUI configuration for hotkeys, mode, auto-submit, stop delay, hotwords, and related settings.
+- TUI configuration for hotkeys, mode, auto-submit, stop delay, max recording duration, hotwords, and related settings.
 - ASR hotwords for project names, people names, English terms, and domain-specific vocabulary.
 - Usage statistics for total sessions, total recognized characters, average speed, and recent speed.
 
@@ -116,9 +116,10 @@ Recommended hotkey config:
 [voice]
 mode = "toggle"
 push_to_talk = "Alt+Super"
+max_record_secs = 30  # max seconds per recording; 0 = unlimited
 ```
 
-`Alt+Super` with `toggle` mode is recommended. Press once to start recording, then press again to stop. This avoids hold-mode key conflicts with desktop environments or focused input fields.
+`Alt+Super` with `toggle` mode is recommended. Press once to start recording, then press again to stop. This avoids hold-mode key conflicts with desktop environments or focused input fields. By default each recording stops automatically after 30 seconds to limit ASR quota usage.
 
 Voice hotkeys only support keys suitable for global shortcuts:
 

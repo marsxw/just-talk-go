@@ -34,8 +34,9 @@ type VoiceConfig struct {
 	PushToTalk  string   `toml:"push_to_talk"`
 	Device      string   `toml:"device"`
 	Gain        int      `toml:"gain"`
-	StopDelayMs int      `toml:"stop_delay_ms"`
-	Language    string   `toml:"language"`
+	StopDelayMs    int      `toml:"stop_delay_ms"`
+	MaxRecordSecs  int      `toml:"max_record_secs"`
+	Language       string   `toml:"language"`
 	AutoSubmit  bool     `toml:"auto_submit"`
 	AppKey      string   `toml:"app_key"`
 	AccessKey   string   `toml:"access_key"`
@@ -48,6 +49,7 @@ func Default() *Config {
 		Voice: VoiceConfig{
 			Enabled: true, Mode: "toggle", PushToTalk: "Alt+Super",
 			Language: "zh-CN", AutoSubmit: true, ResourceID: "volc.bigasr.sauc.duration",
+			MaxRecordSecs: 30,
 		},
 		Overlay: OverlayConfig{
 			Enabled: true, Position: "bottom-center", IdleVisible: false, Scale: 1.0,
