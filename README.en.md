@@ -16,7 +16,7 @@ It is built for people who want to type less and speak more while coding, chatti
 - Voice hotkeys are limited to keys suitable for global shortcuts: modifiers, function keys, Tab, CapsLock, arrow/navigation keys, and similar non-text keys. Letters, digits, punctuation, Space, and other text-producing keys are rejected.
 - Doubao streaming ASR with optimized bidirectional streaming and second-pass recognition.
 - Clipboard copy and automatic text submission.
-- Always-on-top recording status overlay for Wayland, X11, and macOS.
+- Always-on-top recording status overlay for Wayland, X11, and macOS, with live ASR transcript text while recording.
 - TUI configuration for hotkeys, mode, auto-submit, stop delay, hotwords, and related settings.
 - ASR hotwords for project names, people names, English terms, and domain-specific vocabulary.
 - Usage statistics for total sessions, total recognized characters, average speed, and recent speed.
@@ -84,6 +84,15 @@ Run without the TUI:
 
 ```bash
 just-talk --no-tui
+```
+
+Control recording from the command line (requires a running just-talk instance):
+
+```bash
+just-talk --toggle-recording   # toggle recording (same as one hotkey press in toggle mode)
+just-talk --start-recording    # start recording
+just-talk --stop-recording     # stop recording
+just-talk --recording-status   # print current recording state
 ```
 
 Force a backend:

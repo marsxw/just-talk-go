@@ -13,6 +13,7 @@ import (
 	"github.com/c/just-talk-go/config"
 	"github.com/c/just-talk-go/engine"
 	"github.com/c/just-talk-go/hotkey"
+	"github.com/c/just-talk-go/internal/control"
 	"github.com/c/just-talk-go/internal/doctor"
 	"github.com/c/just-talk-go/internal/tui"
 	"github.com/c/just-talk-go/plugins"
@@ -33,7 +34,18 @@ func main() {
 	overlayHelper := flag.Bool("overlay-helper", false, "run macOS overlay helper")
 	overlayPosition := flag.String("overlay-position", "top-right", "overlay helper position")
 	overlayScale := flag.Float64("overlay-scale", 1.0, "overlay helper scale")
+	toggleRecording := flag.Bool("toggle-recording", false, "toggle recording on a running just-talk instance")
+	startRecording := flag.Bool("start-recording", false, "start recording on a running just-talk instance")
+	stopRecording := flag.Bool("stop-recording", false, "stop recording on a running just-talk instance")
+	recordingStatus := flag.Bool("recording-status", false, "print recording status of a running just-talk instance")
 	flag.Parse()
+	if err := runControlCommand(*toggleRecording, *startRecording, *stopRecording, *recordingStatus); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if *toggleRecording || *startRecording || *stopRecording || *recordingStatus {
+		return
+	}
 	if *installOnly {
 		if err := installSelf(); err != nil {
 			fmt.Fprintf(os.Stderr, "install failed: %v\n", err)
@@ -112,17 +124,75 @@ func main() {
 	if *debug && cfg.Debug.Enabled && !*useTUI {
 		eng.LoadPlugin(plugins.NewDebugPlugin())
 	}
-	eng.LoadPlugin(voice.NewVoicePlugin())
+	voicePlugin := voice.NewVoicePlugin()
+	eng.LoadPlugin(voicePlugin)
 	eng.LoadPlugin(overlay.NewOverlayPlugin())
 	if p := config.FindConfig(); p != "" {
 		eng.WatchConfig(p)
 	}
+	startControlServer(eng, voicePlugin, logger)
 
 	if *useTUI {
 		runTUI(eng, cfg, *debug)
 	} else {
 		runDaemon(eng)
 	}
+}
+
+func runControlCommand(toggle, start, stop, status bool) error {
+	count := 0
+	cmd := ""
+	if toggle {
+		count++
+		cmd = "toggle"
+	}
+	if start {
+		count++
+		cmd = "start"
+	}
+	if stop {
+		count++
+		cmd = "stop"
+	}
+	if status {
+		count++
+		cmd = "status"
+	}
+	if count == 0 {
+		return nil
+	}
+	if count > 1 {
+		return fmt.Errorf("only one recording control flag can be used at a time")
+	}
+	resp, err := control.Send(config.ControlSocketPath(), cmd)
+	if err != nil {
+		return err
+	}
+	if status {
+		fmt.Println(resp)
+	}
+	return nil
+}
+
+func startControlServer(eng *engine.Engine, voicePlugin *voice.VoicePlugin, logger *slog.Logger) {
+	srv := control.NewServer(config.ControlSocketPath(), control.Handler{
+		Toggle: voicePlugin.TriggerToggle,
+		Start:  voicePlugin.TriggerStart,
+		Stop:   voicePlugin.TriggerStop,
+		Status: func() (string, error) {
+			recording, stopping := voicePlugin.RecordingStatus()
+			return fmt.Sprintf("ok recording=%t stopping=%t", recording, stopping), nil
+		},
+	})
+	if err := srv.Start(eng.Context()); err != nil {
+		logger.Error("failed to start control server", "error", err)
+		return
+	}
+	go func() {
+		<-eng.Context().Done()
+		srv.Stop()
+	}()
+	logger.Info("control server listening", "path", config.ControlSocketPath())
 }
 
 func runDaemon(eng *engine.Engine) {

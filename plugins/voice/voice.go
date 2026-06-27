@@ -43,6 +43,7 @@ var tuiStatsMu sync.Mutex
 type TUIVoiceStatus struct {
 	State           string
 	Detail          string
+	LiveText        string
 	Recording       bool
 	Stopping        bool
 	StopAt          time.Time
@@ -199,6 +200,12 @@ func TUIStatus() TUIVoiceStatus {
 		tuiStatus.UpdatedAt = time.Now()
 	}
 	return tuiStatus
+}
+
+func setLiveText(text string) {
+	setTUIStatus(func(s *TUIVoiceStatus) {
+		s.LiveText = text
+	})
 }
 
 func setTUIStatus(update func(*TUIVoiceStatus)) {
@@ -397,6 +404,57 @@ func (p *VoicePlugin) onRetryHotkey(evt hotkey.Event) {
 	p.retryLastError()
 }
 
+func (p *VoicePlugin) TriggerToggle() error {
+	p.enqueueControlEvent(hotkey.KeyDown)
+	return nil
+}
+
+func (p *VoicePlugin) TriggerStart() error {
+	p.mu.Lock()
+	rec := p.recording
+	p.mu.Unlock()
+	if rec {
+		return nil
+	}
+	p.enqueueControlEvent(hotkey.KeyDown)
+	return nil
+}
+
+func (p *VoicePlugin) TriggerStop() error {
+	p.mu.Lock()
+	rec := p.recording
+	stopping := p.stopping
+	mode := p.mode
+	p.mu.Unlock()
+	if !rec {
+		return nil
+	}
+	if mode == "hold" {
+		p.enqueueControlEvent(hotkey.KeyUp)
+		return nil
+	}
+	if stopping {
+		return nil
+	}
+	p.enqueueControlEvent(hotkey.KeyDown)
+	return nil
+}
+
+func (p *VoicePlugin) RecordingStatus() (recording, stopping bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.recording, p.stopping
+}
+
+func (p *VoicePlugin) enqueueControlEvent(evtType hotkey.EventType) {
+	ctx := context.Background()
+	if p.env != nil && p.env.Engine() != nil {
+		ctx = p.env.Engine().Context()
+	}
+	p.startEventWorker(ctx)
+	p.events <- hotkey.Event{Type: evtType, Combo: p.combo}
+}
+
 func (p *VoicePlugin) startEventWorker(ctx context.Context) {
 	p.eventOnce.Do(func() {
 		p.events = make(chan hotkey.Event, 256)
@@ -551,6 +609,7 @@ func (p *VoicePlugin) startRecording() {
 	p.publishStatusLocked()
 	p.mu.Unlock() // Release lock before slow WebSocket dial
 
+	setLiveText("")
 	go p.connectASR(ctx, cancel, sessionID, sessionGen, rec, asrCfg)
 	if shouldStopImmediately {
 		p.startStopDelay()
@@ -601,6 +660,9 @@ func (p *VoicePlugin) connectASR(ctx context.Context, cancel context.CancelFunc,
 			if result.Error != nil {
 				pout("❌ ASR 错误: %v", result.Error)
 				continue
+			}
+			if result.Text != "" {
+				setLiveText(result.Text)
 			}
 			if result.IsFinal {
 				pout("\n🎤 最终: %s", result.Text)
@@ -907,6 +969,9 @@ func (p *VoicePlugin) publishStatusSnapshotLocked(state, detail string, recordin
 		s.ErrorUntil = p.errorUntil
 		s.SessionID = sessionID
 		s.PendingFinishes = pendingDone
+		if state == "idle" {
+			s.LiveText = ""
+		}
 	})
 }
 

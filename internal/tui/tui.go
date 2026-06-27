@@ -40,6 +40,7 @@ const (
 type field struct {
 	label   string
 	key     string
+	section string
 	help    string
 	fType   fieldType
 	input   textinput.Model
@@ -67,18 +68,36 @@ type Model struct {
 
 func New(cfg *config.Config) *Model {
 	vc := cfg.Voice
+	oc := cfg.Overlay
 	ti := func(v string) textinput.Model { t := textinput.New(); t.SetValue(v); t.Cursor.Blink = false; return t }
+	positions := overlayPositions()
 	fs := []field{
 		{label: "语音输入", key: "enabled", help: "关闭后不注册热键", fType: fToggle, boolVal: vc.Enabled},
 		{label: "热键", key: "push_to_talk", help: "例: Alt+Super / F9 / Ctrl+Alt+Tab；不支持字母、数字、标点、空格等普通字符键", fType: fString, input: ti(vc.PushToTalk)},
 		{label: "模式", key: "mode", help: "toggle 切换 / hold 按住", fType: fSelect, opts: []string{"toggle", "hold"}, optIdx: idxOf([]string{"toggle", "hold"}, vc.Mode)},
 		{label: "App Key", key: "app_key", help: "火山 App ID", fType: fString, input: ti(vc.AppKey)},
 		{label: "Access Key", key: "access_key", help: "火山 Access Token", fType: fString, input: ti(vc.AccessKey)},
-		{label: "自动上屏", key: "auto_submit", help: "识别后自动粘贴", fType: fToggle, boolVal: vc.AutoSubmit},
+		{label: "自动上屏", key: "auto_submit", help: "识别后自动粘贴到当前输入框；关闭则只写入剪贴板", fType: fToggle, boolVal: vc.AutoSubmit},
 		{label: "停止延迟(ms)", key: "stop_delay_ms", help: "松手后补录毫秒", fType: fString, input: ti(fmt.Sprintf("%d", vc.StopDelayMs))},
 		{label: "热词", key: "hotwords", help: "逗号分隔术语", fType: fString, input: ti(strings.Join(vc.Hotwords, ", "))},
+		{label: "屏幕胶囊", key: "overlay_enabled", section: "overlay", help: "录音时在屏幕上显示状态胶囊", fType: fToggle, boolVal: oc.Enabled},
+		{label: "实时字幕", key: "overlay_live_text", section: "overlay", help: "录音时在屏幕胶囊显示 ASR 识别文字", fType: fToggle, boolVal: oc.LiveText},
+		{label: "胶囊位置", key: "overlay_position", section: "overlay", help: "屏幕胶囊位置；修改后需重启 just-talk", fType: fSelect, opts: positions, optIdx: idxOf(positions, defaultOverlayPosition(oc.Position))},
 	}
 	return &Model{cfg: cfg, fields: fs, logs: make([]string, 0, 100), cursor: -1, showLogs: true}
+}
+
+func overlayPositions() []string {
+	return []string{"bottom-center", "bottom-right", "bottom-left", "top-center", "top-right", "top-left"}
+}
+
+func defaultOverlayPosition(position string) string {
+	for _, p := range overlayPositions() {
+		if p == position {
+			return position
+		}
+	}
+	return "bottom-center"
 }
 
 func (m *Model) SetDebug(debug bool) {
@@ -211,6 +230,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 func (m *Model) save() {
 	next := *m.cfg
 	vc := &next.Voice
+	oc := &next.Overlay
 	for _, f := range m.fields {
 		switch f.key {
 		case "enabled":
@@ -229,6 +249,12 @@ func (m *Model) save() {
 			fmt.Sscanf(f.input.Value(), "%d", &vc.StopDelayMs)
 		case "hotwords":
 			vc.Hotwords = splitList(f.input.Value())
+		case "overlay_enabled":
+			oc.Enabled = f.boolVal
+		case "overlay_live_text":
+			oc.LiveText = f.boolVal
+		case "overlay_position":
+			oc.Position = f.opts[f.optIdx]
 		}
 	}
 	combo, err := config.ParseHotkey(vc.PushToTalk)
@@ -305,6 +331,9 @@ func (m *Model) View() string {
 	b.WriteString(m.renderVoiceStats() + "\n\n")
 	b.WriteString(lStyle.Render("── 配置 (e 编辑, s 保存, h 帮助, j/k 导航) ──") + "\n")
 	for i, f := range m.fields {
+		if f.section == "overlay" && (i == 0 || m.fields[i-1].section != "overlay") {
+			b.WriteString("\n" + lStyle.Render("── 屏幕胶囊 ──") + "\n")
+		}
 		marker := "  "
 		if i == m.cursor {
 			if m.editing {
@@ -345,6 +374,9 @@ func (m *Model) View() string {
 		}
 	}
 	b.WriteString(hStyle.Render("  j/k 导航 | e 编辑 | h 帮助 | esc 退出编辑 | s 保存 | q 退出"))
+	if m.helpVisible {
+		b.WriteString("\n" + dStyle.Render("  命令行控制: just-talk --toggle-recording | --start-recording | --stop-recording"))
+	}
 	return b.String()
 }
 
@@ -389,6 +421,9 @@ func (m *Model) renderVoiceStatus() string {
 	parts := []string{style.Render(label)}
 	if status.Detail != "" {
 		parts = append(parts, vStyle.Render(status.Detail))
+	}
+	if text := strings.TrimSpace(status.LiveText); text != "" {
+		parts = append(parts, wStyle.Render(text))
 	}
 	if !status.StopAt.IsZero() {
 		remaining := time.Until(status.StopAt)

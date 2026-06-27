@@ -23,7 +23,11 @@ All notable project changes are tracked here.
 - Fixed a Wayland overlay shutdown race that could crash while closing the app, and surfaced Linux `arecord` microphone/device failures in the UI.
 - Made `Esc` cancel active overlay states, including the final ASR wait state, and suppress output from canceled pending sessions.
 - Improved Wayland overlay rounded-corner antialiasing, especially on KDE Plasma.
-- Added `just-talk --install` and `make install` to install the binary into `~/.local/bin`.
+- Fixed X11 auto-submit restoring the previous clipboard content after paste, so recognized text now stays on the clipboard.
+- Added live ASR transcript text to the on-screen recording overlay, with CJK font rendering on Linux.
+- Exposed overlay settings in the TUI: screen capsule toggle, live transcript toggle, and capsule position.
+- Overlay live transcript now wraps to up to three lines with a fixed max width instead of truncating to one line.
+- Overlay status text such as REC/WAI is removed; only the colored indicator dot and live transcript remain.
 
 ## 2026-05-30
 

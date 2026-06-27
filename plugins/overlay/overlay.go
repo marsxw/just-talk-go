@@ -3,6 +3,7 @@ package overlay
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/c/just-talk-go/config"
@@ -74,8 +75,13 @@ func (p *Plugin) Stop() error {
 	return nil
 }
 
+func (p *Plugin) OnConfigReload(cfg *config.Config) error {
+	p.cfg = cfg.Overlay
+	return nil
+}
+
 func (p *Plugin) sync(status voice.TUIVoiceStatus) {
-	label, color, visible := displayForStatus(status, p.cfg.IdleVisible)
+	label, color, visible := displayForStatus(status, p.cfg)
 	if status.State == p.lastState && label == p.lastLabel && visible == p.lastVisible {
 		return
 	}
@@ -92,19 +98,40 @@ func (p *Plugin) sync(status voice.TUIVoiceStatus) {
 	}
 }
 
-func displayForStatus(status voice.TUIVoiceStatus, idleVisible bool) (string, statusColor, bool) {
+func displayForStatus(status voice.TUIVoiceStatus, cfg config.OverlayConfig) (string, statusColor, bool) {
+	scale := cfg.Scale
+	if scale <= 0 {
+		scale = 1
+	}
 	switch status.State {
 	case "connecting":
-		return "CON", statusColor{R: 245 << 8, G: 190 << 8, B: 70 << 8}, true
+		return overlayLabel(status, cfg, statusColor{R: 245 << 8, G: 190 << 8, B: 70 << 8}, true)
 	case "recording":
-		return "REC", statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true
+		return overlayLabel(status, cfg, statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true)
 	case "stopping_delayed":
-		return "STP", statusColor{R: 255 << 8, G: 140 << 8, B: 60 << 8}, true
+		return overlayLabel(status, cfg, statusColor{R: 255 << 8, G: 140 << 8, B: 60 << 8}, true)
 	case "stopping":
-		return "WAI", statusColor{R: 255 << 8, G: 160 << 8, B: 70 << 8}, true
+		return overlayLabel(status, cfg, statusColor{R: 255 << 8, G: 160 << 8, B: 70 << 8}, true)
 	case "error":
-		return "ERR", statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true
+		text := strings.TrimSpace(status.LiveText)
+		if cfg.LiveText && text != "" {
+			return FormatOverlayText(text, scale), statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true
+		}
+		return "", statusColor{R: 255 << 8, G: 65 << 8, B: 65 << 8}, true
 	default:
-		return "IDL", statusColor{R: 145 << 8, G: 145 << 8, B: 145 << 8}, idleVisible
+		return "", statusColor{R: 145 << 8, G: 145 << 8, B: 145 << 8}, cfg.IdleVisible
 	}
+}
+
+func overlayLabel(status voice.TUIVoiceStatus, cfg config.OverlayConfig, color statusColor, visible bool) (string, statusColor, bool) {
+	if cfg.LiveText {
+		if text := strings.TrimSpace(status.LiveText); text != "" {
+			scale := cfg.Scale
+			if scale <= 0 {
+				scale = 1
+			}
+			return FormatOverlayText(text, scale), color, visible
+		}
+	}
+	return "", color, visible
 }

@@ -23,6 +23,7 @@ type DebugConfig struct {
 
 type OverlayConfig struct {
 	Enabled     bool    `toml:"enabled"`
+	LiveText    bool    `toml:"live_text"`
 	Position    string  `toml:"position"`
 	IdleVisible bool    `toml:"idle_visible"`
 	Scale       float64 `toml:"scale"`
@@ -50,7 +51,7 @@ func Default() *Config {
 			Language: "zh-CN", AutoSubmit: true, ResourceID: "volc.bigasr.sauc.duration",
 		},
 		Overlay: OverlayConfig{
-			Enabled: true, Position: "bottom-center", IdleVisible: false, Scale: 1.0,
+			Enabled: true, LiveText: true, Position: "bottom-center", IdleVisible: false, Scale: 1.0,
 		},
 	}
 }
@@ -90,6 +91,17 @@ func FindConfig() string {
 		}
 	}
 	return ""
+}
+
+func ControlSocketPath() string {
+	if p := FindConfig(); p != "" {
+		return filepath.Join(filepath.Dir(p), "control.sock")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "control.sock"
+	}
+	return filepath.Join(home, ".config", "just-talk", "control.sock")
 }
 
 func Save(cfg *Config) error {

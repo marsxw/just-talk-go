@@ -152,6 +152,10 @@ func (b *waylandBackend) Show(label string, color statusColor) error {
 	if b.display == nil || b.closed || b.destroyed {
 		return nil
 	}
+	layout := layoutPill(label, b.scale)
+	if err := b.ensureSize(layout.width, layout.height); err != nil {
+		return err
+	}
 	b.draw(label, color)
 	C.wl_surface_attach(b.surface, b.buffer, 0, 0)
 	C.wl_surface_damage_buffer(b.surface, 0, 0, C.int32_t(b.w), C.int32_t(b.h))
@@ -299,39 +303,41 @@ func (b *waylandBackend) createBuffer() error {
 	return nil
 }
 
+func (b *waylandBackend) ensureSize(w, h int) error {
+	if w == b.w && h == b.h {
+		return nil
+	}
+	if b.buffer != nil {
+		C.wl_buffer_destroy(b.buffer)
+		b.buffer = nil
+	}
+	if b.pool != nil {
+		C.wl_shm_pool_destroy(b.pool)
+		b.pool = nil
+	}
+	if b.data != nil {
+		_ = unix.Munmap(b.data)
+		b.data = nil
+	}
+	if b.file != nil {
+		_ = b.file.Close()
+		b.file = nil
+	}
+	b.w, b.h = w, h
+	if err := b.createBuffer(); err != nil {
+		return err
+	}
+	if b.layerSurface != nil {
+		C.zwlr_layer_surface_v1_set_size(b.layerSurface, C.uint32_t(b.w), C.uint32_t(b.h))
+		C.wl_surface_commit(b.surface)
+		C.wl_display_roundtrip(b.display)
+	}
+	return nil
+}
+
 func (b *waylandBackend) draw(label string, color statusColor) {
-	clear(b.data)
-	bg := rgba{20, 20, 20, 215}
-	fg := rgba{245, 245, 245, 255}
-	dot := rgba{uint8(color.R >> 8), uint8(color.G >> 8), uint8(color.B >> 8), 255}
-	radius := b.h / 2
-	for y := 0; y < b.h; y++ {
-		for x := 0; x < b.w; x++ {
-			if coverage := waylandRoundedRectCoverage(x, y, b.w, b.h, radius); coverage > 0 {
-				c := bg
-				c.a = uint8(uint16(c.a) * uint16(coverage) / 255)
-				b.setPixel(x, y, c)
-			}
-		}
-	}
-	dotSize := b.scaled(14)
-	gap := b.scaled(14)
-	textScale := b.scaled(3)
-	textW := bitmapTextWidth(label, textScale)
-	contentW := dotSize + gap + textW
-	dotX := (b.w - contentW) / 2
-	if dotX < 0 {
-		dotX = 0
-	}
-	dotY := (b.h - dotSize) / 2
-	b.fillCircleAA(dotX+dotSize/2, dotY+dotSize/2, dotSize/2, dot)
-	textH := 7 * textScale
-	textX := dotX + dotSize + gap
-	textY := (b.h - textH) / 2
-	if maxX := b.w - b.scaled(14) - textW; textX > maxX {
-		textX = maxX
-	}
-	b.drawText(textX, textY, label, textScale, fg)
+	p := drawPillCanvas(b.w, b.h, label, color, b.scale)
+	copy(b.data, p.data)
 }
 
 type rgba struct {

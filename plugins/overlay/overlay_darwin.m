@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 @interface JTOverlayView : NSView {
 	NSString *label;
@@ -58,20 +59,36 @@
 	CGFloat dotY = (NSHeight(bounds) - dotSize) / 2.0;
 
 	NSDictionary *attrs = @{
-		NSFontAttributeName: [NSFont boldSystemFontOfSize:13.0 * scale],
+		NSFontAttributeName: [NSFont systemFontOfSize:14.0 * scale],
 		NSForegroundColorAttributeName: [NSColor colorWithCalibratedRed:0.96 green:0.96 blue:0.96 alpha:1.0],
 	};
-	NSSize textSize = [label sizeWithAttributes:attrs];
 	CGFloat gap = 14.0 * scale;
-	CGFloat contentW = dotSize + gap + textSize.width;
-	dotX = (NSWidth(bounds) - contentW) / 2.0;
-	if (dotX < 0) dotX = 0;
+	CGFloat pad = 14.0 * scale;
+	CGFloat maxW = 520.0 * scale;
+	CGFloat textMaxW = maxW - (14.0 * scale) - gap - pad * 2.0;
+	if (textMaxW < 80.0 * scale) {
+		textMaxW = 80.0 * scale;
+	}
+	NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
+	[style setLineBreakMode:NSLineBreakByCharWrapping];
+	NSDictionary *drawAttrs = @{
+		NSFontAttributeName: attrs[NSFontAttributeName],
+		NSForegroundColorAttributeName: attrs[NSForegroundColorAttributeName],
+		NSParagraphStyleAttributeName: style,
+	};
+	dotX = pad;
+	dotY = (NSHeight(bounds) - dotSize) / 2.0;
 	NSBezierPath *dot = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(dotX, dotY, dotSize, dotSize)];
 	[dotColor setFill];
 	[dot fill];
+	if ([label length] == 0) {
+		return;
+	}
 	CGFloat textX = dotX + dotSize + gap;
-	CGFloat textY = (NSHeight(bounds) - textSize.height) / 2.0;
-	[label drawAtPoint:NSMakePoint(textX, textY) withAttributes:attrs];
+	NSRect textRect = NSMakeRect(textX, pad, textMaxW, NSHeight(bounds) - pad * 2.0);
+	[label drawWithRect:textRect
+	            options:(NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading)
+	         attributes:drawAttrs];
 }
 @end
 
@@ -105,12 +122,56 @@ static void jt_overlay_pump(void) {
 	} while (event != nil);
 }
 
+static void jt_overlay_resize_for_label(jt_overlay_t *overlay, NSString *text) {
+	CGFloat scale = overlay->scale <= 0 ? 1.0 : overlay->scale;
+	CGFloat pad = 14.0 * scale;
+	CGFloat dotSize = 14.0 * scale;
+	if ([text length] == 0) {
+		CGFloat w = dotSize + pad * 2.0;
+		CGFloat h = fmax(42.0 * scale, dotSize + pad * 2.0);
+		[overlay->panel setContentSize:NSMakeSize(w, h)];
+		[overlay->view setFrame:NSMakeRect(0, 0, w, h)];
+		return;
+	}
+	CGFloat gap = 14.0 * scale;
+	CGFloat maxW = 520.0 * scale;
+	CGFloat textMaxW = maxW - dotSize - gap - pad * 2.0;
+	if (textMaxW < 80.0 * scale) {
+		textMaxW = 80.0 * scale;
+	}
+	NSDictionary *attrs = @{
+		NSFontAttributeName: [NSFont systemFontOfSize:14.0 * scale],
+		NSForegroundColorAttributeName: [NSColor whiteColor],
+	};
+	NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
+	[style setLineBreakMode:NSLineBreakByCharWrapping];
+	NSSize constraint = NSMakeSize(textMaxW, 14.0 * scale * 3.5);
+	NSDictionary *drawAttrs = @{
+		NSFontAttributeName: attrs[NSFontAttributeName],
+		NSForegroundColorAttributeName: attrs[NSForegroundColorAttributeName],
+		NSParagraphStyleAttributeName: style,
+	};
+	NSRect bounds = [text boundingRectWithSize:constraint
+		options:(NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading)
+		attributes:drawAttrs];
+	CGFloat lineCount = fmax(1.0, ceil(bounds.size.height / (14.0 * scale * 1.2)));
+	if (lineCount > 3.0) {
+		lineCount = 3.0;
+	}
+	CGFloat textH = lineCount * 14.0 * scale * 1.2;
+	CGFloat w = fmin(maxW, fmax(122.0 * scale, dotSize + gap + textMaxW + pad * 2.0));
+	CGFloat h = fmax(42.0 * scale, textH + pad * 2.0);
+	[overlay->panel setContentSize:NSMakeSize(w, h)];
+	[overlay->view setFrame:NSMakeRect(0, 0, w, h)];
+}
+
 static void jt_overlay_move(jt_overlay_t *overlay) {
 	NSScreen *screen = [NSScreen mainScreen];
 	if (screen == nil) return;
 	NSRect frame = [screen visibleFrame];
-	CGFloat w = 122.0 * overlay->scale;
-	CGFloat h = 42.0 * overlay->scale;
+	NSRect panel = [overlay->panel frame];
+	CGFloat w = NSWidth(panel);
+	CGFloat h = NSHeight(panel);
 	CGFloat margin = 28.0 * overlay->scale;
 	CGFloat x = NSMaxX(frame) - w - margin;
 	CGFloat y = NSMaxY(frame) - h - margin;
@@ -183,6 +244,7 @@ void jt_overlay_show(void *handle, const char *labelText, unsigned short r, unsi
 	jt_overlay_on_main_sync(^{
 		NSString *text = [NSString stringWithUTF8String:labelCopy == NULL ? "" : labelCopy];
 		[overlay->view setLabel:text red:((CGFloat)r / 65535.0) green:((CGFloat)g / 65535.0) blue:((CGFloat)b / 65535.0)];
+		jt_overlay_resize_for_label(overlay, text);
 		jt_overlay_move(overlay);
 		[overlay->panel setIsVisible:YES];
 		[overlay->panel setAlphaValue:1.0];

@@ -59,10 +59,8 @@ func pastePlatform(text string, logger *slog.Logger) error {
 	return pasteX11(text, logger)
 }
 
-// On X11: sets PRIMARY + CLIPBOARD via xclip, simulates Shift+Insert, restores.
+// On X11: sets PRIMARY + CLIPBOARD via xclip, simulates Shift+Insert.
 func pasteX11(text string, logger *slog.Logger) error {
-	orig, _ := runClipboard("xclip", "-o", "-selection", "clipboard")
-
 	if err := pipeToCmd(text, "xclip", "-selection", "clipboard"); err != nil {
 		return fmt.Errorf("set clipboard: %w", err)
 	}
@@ -87,10 +85,6 @@ func pasteX11(text string, logger *slog.Logger) error {
 	primaryCmd.Process.Kill()
 	primaryCmd.Wait()
 
-	if orig != "" && orig != text {
-		pipeToCmd(orig, "xclip", "-selection", "clipboard")
-	}
-
 	logger.Debug("autotype done", "text_len", len(text))
 	return nil
 }
@@ -112,15 +106,6 @@ func pasteWayland(text string, logger *slog.Logger) error {
 
 	logger.Debug("autotype done", "text_len", len(text), "method", pasteMethod())
 	return nil
-}
-
-func runClipboard(args ...string) (string, error) {
-	cmd := exec.Command(args[0], args[1:]...)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
 }
 
 func pipeToCmd(input string, args ...string) error {

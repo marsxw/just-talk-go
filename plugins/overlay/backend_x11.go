@@ -207,6 +207,8 @@ func (b *x11Backend) Show(label string, color statusColor) error {
 	if b.dpy == nil {
 		return nil
 	}
+	layout := layoutPill(label, b.scale)
+	b.ensureSize(layout.width, layout.height)
 	b.move()
 	b.draw(label, color)
 	if !b.visible {
@@ -284,47 +286,28 @@ func (b *x11Backend) focusedMonitor() (x, y, w, h int) {
 	return 0, 0, w, h
 }
 
-func (b *x11Backend) draw(label string, color statusColor) {
-	if !b.argb {
-		b.drawShape(label, color)
+func (b *x11Backend) ensureSize(w, h int) {
+	if w == b.w && h == b.h {
 		return
 	}
-	p := newARGBCanvas(b.w, b.h)
-	bg := rgba{20, 20, 20, 215}
-	fg := rgba{245, 245, 245, 255}
-	dot := rgba{uint8(color.R >> 8), uint8(color.G >> 8), uint8(color.B >> 8), 255}
-	radius := b.h / 2
-	for y := 0; y < b.h; y++ {
-		for x := 0; x < b.w; x++ {
-			if coverage := roundedRectCoverage(x, y, b.w, b.h, radius); coverage > 0 {
-				c := bg
-				c.a = uint8(uint16(c.a) * uint16(coverage) / 255)
-				p.setPixel(x, y, c)
-			}
-		}
+	b.w, b.h = w, h
+	C.XResizeWindow(b.dpy, b.win, C.uint(b.w), C.uint(b.h))
+	if !b.argb {
+		b.applyShape()
 	}
-	dotSize := b.scaled(14)
-	gap := b.scaled(14)
-	textScale := b.scaled(3)
-	textW := bitmapTextWidth(label, textScale)
-	contentW := dotSize + gap + textW
-	dotX := (b.w - contentW) / 2
-	if dotX < 0 {
-		dotX = 0
+}
+
+func (b *x11Backend) draw(label string, color statusColor) {
+	if b.argb {
+		p := drawPillCanvas(b.w, b.h, label, color, b.scale)
+		b.putImage(p.data)
+		return
 	}
-	dotY := (b.h - dotSize) / 2
-	p.fillCircleAA(dotX+dotSize/2, dotY+dotSize/2, dotSize/2, dot)
-	textH := 7 * textScale
-	textX := dotX + dotSize + gap
-	textY := (b.h - textH) / 2
-	if maxX := b.w - b.scaled(14) - textW; textX > maxX {
-		textX = maxX
-	}
-	p.drawText(textX, textY, label, textScale, fg)
-	b.putImage(p.data)
+	b.drawShape(label, color)
 }
 
 func (b *x11Backend) drawShape(label string, color statusColor) {
+	layout := layoutPill(label, b.scale)
 	bg := b.alloc(20<<8, 20<<8, 20<<8)
 	fg := b.alloc(245<<8, 245<<8, 245<<8)
 	dot := b.alloc(color.R, color.G, color.B)
@@ -332,29 +315,22 @@ func (b *x11Backend) drawShape(label string, color statusColor) {
 
 	C.XSetForeground(b.dpy, b.gc, bg)
 	C.XFillRectangle(b.dpy, C.Drawable(b.win), b.gc, 0, 0, C.uint(b.w), C.uint(b.h))
-	dotSize := b.scaled(14)
-	gap := b.scaled(14)
-	textScale := b.scaled(3)
-	textW := bitmapTextWidth(label, textScale)
-	contentW := dotSize + gap + textW
-	dotX := (b.w - contentW) / 2
-	if dotX < 0 {
-		dotX = 0
-	}
-	dotY := (b.h - dotSize) / 2
 	C.XSetForeground(b.dpy, b.gc, dotEdge)
-	C.XFillArc(b.dpy, C.Drawable(b.win), b.gc, C.int(dotX), C.int(dotY), C.uint(dotSize), C.uint(dotSize), 0, 360*64)
+	C.XFillArc(b.dpy, C.Drawable(b.win), b.gc, C.int(layout.dotX), C.int(layout.dotY), C.uint(layout.dotSize), C.uint(layout.dotSize), 0, 360*64)
 	inset := b.scaled(1)
 	C.XSetForeground(b.dpy, b.gc, dot)
-	C.XFillArc(b.dpy, C.Drawable(b.win), b.gc, C.int(dotX+inset), C.int(dotY+inset), C.uint(dotSize-2*inset), C.uint(dotSize-2*inset), 0, 360*64)
-	C.XSetForeground(b.dpy, b.gc, fg)
-	textH := 7 * textScale
-	textX := dotX + dotSize + gap
-	textY := (b.h - textH) / 2
-	if maxX := b.w - b.scaled(14) - textW; textX > maxX {
-		textX = maxX
+	C.XFillArc(b.dpy, C.Drawable(b.win), b.gc, C.int(layout.dotX+inset), C.int(layout.dotY+inset), C.uint(layout.dotSize-2*inset), C.uint(layout.dotSize-2*inset), 0, 360*64)
+	if !layout.hasText {
+		return
 	}
-	drawBitmapText(b, textX, textY, label, textScale)
+	C.XSetForeground(b.dpy, b.gc, fg)
+	lineHeight := layout.lineHeight
+	if lineHeight <= 0 {
+		lineHeight = b.scaled(21)
+	}
+	for i, line := range layout.lines {
+		drawBitmapText(b, layout.textX, layout.textY+i*lineHeight, line, b.scaled(3))
+	}
 }
 
 func (b *x11Backend) alloc(r, g, bl uint16) C.ulong {
