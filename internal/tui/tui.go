@@ -78,6 +78,7 @@ func New(cfg *config.Config) *Model {
 		{label: "App Key", key: "app_key", help: "火山 App ID", fType: fString, input: ti(vc.AppKey)},
 		{label: "Access Key", key: "access_key", help: "火山 Access Token", fType: fString, input: ti(vc.AccessKey)},
 		{label: "自动上屏", key: "auto_submit", help: "识别后自动粘贴到当前输入框；关闭则只写入剪贴板", fType: fToggle, boolVal: vc.AutoSubmit},
+		{label: "上屏延迟(ms)", key: "paste_delay_ms", help: "写入剪贴板后等待多少毫秒再模拟粘贴", fType: fString, input: ti(fmt.Sprintf("%d", vc.PasteDelayMs))},
 		{label: "停止延迟(ms)", key: "stop_delay_ms", help: "松手后补录毫秒", fType: fString, input: ti(fmt.Sprintf("%d", vc.StopDelayMs))},
 		{label: "最长录音(秒)", key: "max_record_secs", help: "单次录音上限，到达后自动停止；0 表示不限制", fType: fString, input: ti(fmt.Sprintf("%d", vc.MaxRecordSecs))},
 		{label: "热词", key: "hotwords", help: "逗号分隔术语", fType: fString, input: ti(strings.Join(vc.Hotwords, ", "))},
@@ -245,6 +246,8 @@ func (m *Model) save() {
 			vc.AccessKey = f.input.Value()
 		case "auto_submit":
 			vc.AutoSubmit = f.boolVal
+		case "paste_delay_ms":
+			fmt.Sscanf(f.input.Value(), "%d", &vc.PasteDelayMs)
 		case "stop_delay_ms":
 			fmt.Sscanf(f.input.Value(), "%d", &vc.StopDelayMs)
 		case "max_record_secs":

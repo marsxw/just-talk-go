@@ -174,6 +174,7 @@ static void jt_overlay_move(jt_overlay_t *overlay) {
 	CGFloat w = NSWidth(panel);
 	CGFloat h = NSHeight(panel);
 	CGFloat margin = 28.0 * overlay->scale;
+	CGFloat bottomMargin = 100.0 * overlay->scale;
 	CGFloat x = NSMaxX(frame) - w - margin;
 	CGFloat y = NSMaxY(frame) - h - margin;
 
@@ -182,11 +183,11 @@ static void jt_overlay_move(jt_overlay_t *overlay) {
 	} else if (strcmp(overlay->position, "top-center") == 0) {
 		x = NSMinX(frame) + (NSWidth(frame) - w) / 2.0; y = NSMaxY(frame) - h - margin;
 	} else if (strcmp(overlay->position, "bottom-left") == 0) {
-		x = NSMinX(frame) + margin; y = NSMinY(frame) + margin;
+		x = NSMinX(frame) + margin; y = NSMinY(frame) + bottomMargin;
 	} else if (strcmp(overlay->position, "bottom-center") == 0) {
-		x = NSMinX(frame) + (NSWidth(frame) - w) / 2.0; y = NSMinY(frame) + margin;
+		x = NSMinX(frame) + (NSWidth(frame) - w) / 2.0; y = NSMinY(frame) + bottomMargin;
 	} else if (strcmp(overlay->position, "bottom-right") == 0) {
-		x = NSMaxX(frame) - w - margin; y = NSMinY(frame) + margin;
+		x = NSMaxX(frame) - w - margin; y = NSMinY(frame) + bottomMargin;
 	}
 	[overlay->panel setFrame:NSMakeRect(x, y, w, h) display:YES];
 }

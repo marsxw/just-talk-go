@@ -265,6 +265,7 @@ type VoicePlugin struct {
 	asrClient              *ASRClient
 	asrCancel              context.CancelFunc
 	autoSubmit             bool
+	pasteDelayMs           int
 	stopDelayMs            int
 	maxRecordSecs          int
 	maxRecordTimer         *time.Timer
@@ -286,8 +287,9 @@ type recordingSession struct {
 	recorder    *Recorder
 	asrClient   *ASRClient
 	asrCancel   context.CancelFunc
-	autoSubmit  bool
-	userStopped bool
+	autoSubmit   bool
+	pasteDelayMs int
+	userStopped  bool
 	startedAt   time.Time
 }
 
@@ -360,6 +362,10 @@ func (p *VoicePlugin) registerFromConfig(cfg *config.Config) error {
 	p.combo = combo
 	p.mode = mode
 	p.autoSubmit = vc.AutoSubmit
+	p.pasteDelayMs = vc.PasteDelayMs
+	if p.pasteDelayMs < 0 {
+		p.pasteDelayMs = 0
+	}
 	p.stopDelayMs = vc.StopDelayMs
 	p.maxRecordSecs = vc.MaxRecordSecs
 	if p.maxRecordSecs < 0 {
@@ -368,7 +374,7 @@ func (p *VoicePlugin) registerFromConfig(cfg *config.Config) error {
 	p.mu.Unlock()
 
 	p.logger.Info("config_reloaded", "hotkey", combo, "mode", mode,
-		"auto_submit", vc.AutoSubmit, "stop_delay_ms", vc.StopDelayMs, "max_record_secs", p.maxRecordSecs)
+		"auto_submit", vc.AutoSubmit, "paste_delay_ms", p.pasteDelayMs, "stop_delay_ms", vc.StopDelayMs, "max_record_secs", p.maxRecordSecs)
 
 	if !sameRegistration {
 		isOld := oldCombo.Key != hotkey.KeyNone || oldCombo.Mods != hotkey.ModNone
@@ -817,8 +823,9 @@ func (p *VoicePlugin) detachRecordingLocked() *recordingSession {
 		recorder:    p.recorder,
 		asrClient:   p.asrClient,
 		asrCancel:   p.asrCancel,
-		autoSubmit:  p.autoSubmit,
-		userStopped: p.userStopped,
+		autoSubmit:   p.autoSubmit,
+		pasteDelayMs: p.pasteDelayMs,
+		userStopped:  p.userStopped,
 		startedAt:   p.startedAt,
 	}
 	p.sessionGen++
@@ -887,7 +894,7 @@ func (p *VoicePlugin) finishRecordingSession(session *recordingSession) {
 				audioDuration = time.Since(session.startedAt)
 			}
 			recordTUIStats(text, audioDuration)
-			p.dispatchTextOutput(text, session.autoSubmit)
+			p.dispatchTextOutput(text, session.autoSubmit, session.pasteDelayMs)
 		}
 		p.logger.Debug("finish session: closing ASR client")
 		closeDone := make(chan error, 1)
@@ -907,10 +914,10 @@ func (p *VoicePlugin) finishRecordingSession(session *recordingSession) {
 	p.logger.Debug("finish session: done")
 }
 
-func (p *VoicePlugin) dispatchTextOutput(text string, autoSubmit bool) {
+func (p *VoicePlugin) dispatchTextOutput(text string, autoSubmit bool, pasteDelayMs int) {
 	go func() {
 		if autoSubmit {
-			if err := autotype.Paste(text, p.logger); err != nil {
+			if err := autotype.Paste(text, pasteDelayMs, p.logger); err != nil {
 				pout("❌ 上屏失败: %v", err)
 			} else {
 				pout("📋 已复制到剪贴板")

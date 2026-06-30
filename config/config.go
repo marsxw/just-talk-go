@@ -37,8 +37,9 @@ type VoiceConfig struct {
 	StopDelayMs    int      `toml:"stop_delay_ms"`
 	MaxRecordSecs  int      `toml:"max_record_secs"`
 	Language       string   `toml:"language"`
-	AutoSubmit  bool     `toml:"auto_submit"`
-	AppKey      string   `toml:"app_key"`
+	AutoSubmit     bool     `toml:"auto_submit"`
+	PasteDelayMs   int      `toml:"paste_delay_ms"`
+	AppKey         string   `toml:"app_key"`
 	AccessKey   string   `toml:"access_key"`
 	ResourceID  string   `toml:"resource_id"`
 	Hotwords    []string `toml:"hotwords"`
@@ -49,7 +50,7 @@ func Default() *Config {
 		Voice: VoiceConfig{
 			Enabled: true, Mode: "toggle", PushToTalk: "Alt+Super",
 			Language: "zh-CN", AutoSubmit: true, ResourceID: "volc.bigasr.sauc.duration",
-			MaxRecordSecs: 30,
+			MaxRecordSecs: 30, PasteDelayMs: 100,
 		},
 		Overlay: OverlayConfig{
 			Enabled: true, Position: "bottom-center", IdleVisible: false, Scale: 1.0,

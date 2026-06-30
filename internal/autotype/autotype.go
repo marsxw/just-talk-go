@@ -5,6 +5,7 @@ import (
 )
 
 // Paste inserts text into the currently focused input field.
-func Paste(text string, logger *slog.Logger) error {
-	return pastePlatform(text, logger)
+// pasteDelayMs is the wait after writing the clipboard and before simulating paste.
+func Paste(text string, pasteDelayMs int, logger *slog.Logger) error {
+	return pastePlatform(text, pasteDelayMs, logger)
 }

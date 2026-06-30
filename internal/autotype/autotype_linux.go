@@ -52,15 +52,22 @@ func isWaylandSession() bool {
 	return os.Getenv("WAYLAND_DISPLAY") != "" || os.Getenv("XDG_SESSION_TYPE") == "wayland"
 }
 
-func pastePlatform(text string, logger *slog.Logger) error {
+func pastePlatform(text string, pasteDelayMs int, logger *slog.Logger) error {
 	if isWaylandSession() {
-		return pasteWayland(text, logger)
+		return pasteWayland(text, pasteDelayMs, logger)
 	}
-	return pasteX11(text, logger)
+	return pasteX11(text, pasteDelayMs, logger)
+}
+
+func pasteAfterClipboardDelay(ms int) time.Duration {
+	if ms < 0 {
+		ms = 0
+	}
+	return time.Duration(ms) * time.Millisecond
 }
 
 // On X11: sets PRIMARY + CLIPBOARD via xclip, simulates Shift+Insert.
-func pasteX11(text string, logger *slog.Logger) error {
+func pasteX11(text string, pasteDelayMs int, logger *slog.Logger) error {
 	if err := pipeToCmd(text, "xclip", "-selection", "clipboard"); err != nil {
 		return fmt.Errorf("set clipboard: %w", err)
 	}
@@ -74,7 +81,7 @@ func pasteX11(text string, logger *slog.Logger) error {
 	primaryIn.Write([]byte(text))
 	primaryIn.Close()
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(pasteAfterClipboardDelay(pasteDelayMs))
 	if err := simulatePaste(); err != nil {
 		primaryCmd.Process.Kill()
 		primaryCmd.Wait()
@@ -89,7 +96,7 @@ func pasteX11(text string, logger *slog.Logger) error {
 	return nil
 }
 
-func pasteWayland(text string, logger *slog.Logger) error {
+func pasteWayland(text string, pasteDelayMs int, logger *slog.Logger) error {
 	if err := pipeToCmd(text, "wl-copy", "--type", "text/plain;charset=utf-8"); err != nil {
 		return fmt.Errorf("set Wayland clipboard: %w", err)
 	}
@@ -99,7 +106,7 @@ func pasteWayland(text string, logger *slog.Logger) error {
 		}
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(pasteAfterClipboardDelay(pasteDelayMs))
 	if err := simulatePaste(); err != nil {
 		return fmt.Errorf("simulate paste: %w", err)
 	}

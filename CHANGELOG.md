@@ -5,6 +5,8 @@ All notable project changes are tracked here.
 ## Unreleased
 
 - Added configurable max recording duration per session (default 30 seconds, 0 = unlimited) to limit ASR quota usage.
+- Added configurable auto-submit paste delay after clipboard write (default 100 ms).
+- Increased bottom overlay margin so the recording capsule clears typical desktop panels and taskbars.
 - Screen overlay now always shows live ASR transcript when enabled; the separate live-text toggle was removed from the TUI and config.
 - Clarified README build and install setup steps for the repository directory and `~/.local/bin` PATH.
 - Restricted voice hotkeys to non-text global shortcut keys, rejecting letters, digits, punctuation, Space, and similar text-producing keys.

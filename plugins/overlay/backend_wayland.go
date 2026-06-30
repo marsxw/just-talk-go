@@ -101,6 +101,7 @@ type waylandBackend struct {
 	w            int
 	h            int
 	margin       int
+	bottomMargin int
 }
 
 func newWaylandBackend(cfg config.OverlayConfig) (backend, error) {
@@ -116,6 +117,7 @@ func newWaylandBackend(cfg config.OverlayConfig) (backend, error) {
 	b.w = b.scaled(basePillW)
 	b.h = b.scaled(basePillH)
 	b.margin = b.scaled(baseMargin)
+	b.bottomMargin = b.scaled(baseBottomMargin)
 	if b.position == "" {
 		b.position = "top-right"
 	}
@@ -437,11 +439,11 @@ func (b *waylandBackend) margins() (top, right, bottom, left int) {
 	case "top-center":
 		return b.margin, 0, 0, 0
 	case "bottom-left":
-		return 0, 0, b.margin, b.margin
+		return 0, 0, b.bottomMargin, b.margin
 	case "bottom-center":
-		return 0, 0, b.margin, 0
+		return 0, 0, b.bottomMargin, 0
 	case "bottom-right":
-		return 0, b.margin, b.margin, 0
+		return 0, b.margin, b.bottomMargin, 0
 	default:
 		return b.margin, b.margin, 0, 0
 	}

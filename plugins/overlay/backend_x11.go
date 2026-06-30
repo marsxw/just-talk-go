@@ -109,9 +109,10 @@ import (
 )
 
 const (
-	basePillW  = 122
-	basePillH  = 42
-	baseMargin = 28
+	basePillW        = 122
+	basePillH        = 42
+	baseMargin       = 28
+	baseBottomMargin = 100
 )
 
 type x11Backend struct {
@@ -130,6 +131,7 @@ type x11Backend struct {
 	w        int
 	h        int
 	margin   int
+	bottomMargin int
 }
 
 func newX11Backend(cfg config.OverlayConfig) (backend, error) {
@@ -148,6 +150,7 @@ func newX11Backend(cfg config.OverlayConfig) (backend, error) {
 	b.w = b.scaled(basePillW)
 	b.h = b.scaled(basePillH)
 	b.margin = b.scaled(baseMargin)
+	b.bottomMargin = b.scaled(baseBottomMargin)
 	if b.position == "" {
 		b.position = "top-right"
 	}
@@ -261,11 +264,11 @@ func (b *x11Backend) move() {
 	case "top-center":
 		x, y = monX+(monW-b.w)/2, monY+b.margin
 	case "bottom-left":
-		x, y = monX+b.margin, monY+monH-b.h-b.margin
+		x, y = monX+b.margin, monY+monH-b.h-b.bottomMargin
 	case "bottom-center":
-		x, y = monX+(monW-b.w)/2, monY+monH-b.h-b.margin
+		x, y = monX+(monW-b.w)/2, monY+monH-b.h-b.bottomMargin
 	case "bottom-right":
-		x, y = monX+monW-b.w-b.margin, monY+monH-b.h-b.margin
+		x, y = monX+monW-b.w-b.margin, monY+monH-b.h-b.bottomMargin
 	}
 	if x < monX {
 		x = monX

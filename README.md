@@ -117,6 +117,7 @@ just-talk --backend x11
 mode = "toggle"
 push_to_talk = "Alt+Super"
 max_record_secs = 30  # 单次最长录音秒数，0 表示不限制
+paste_delay_ms = 100  # 自动上屏：写入剪贴板后等待毫秒再粘贴
 ```
 
 `Alt+Super` 配合 `toggle` 模式是推荐用法。按一次开始录音，再按一次停止录音，避免按住模式下和桌面环境或输入框发生按键冲突。默认单次录音最长 30 秒，到达上限会自动停止，避免过度消耗 ASR 额度。

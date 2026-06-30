@@ -35,7 +35,7 @@ const (
 	keyeventfKeyUp = 2
 )
 
-func pastePlatform(text string, logger *slog.Logger) error {
+func pastePlatform(text string, pasteDelayMs int, logger *slog.Logger) error {
 	return fmt.Errorf("autotype on Windows is not implemented")
 }
 

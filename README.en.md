@@ -117,6 +117,7 @@ Recommended hotkey config:
 mode = "toggle"
 push_to_talk = "Alt+Super"
 max_record_secs = 30  # max seconds per recording; 0 = unlimited
+paste_delay_ms = 100  # auto-submit: wait ms after clipboard write before paste
 ```
 
 `Alt+Super` with `toggle` mode is recommended. Press once to start recording, then press again to stop. This avoids hold-mode key conflicts with desktop environments or focused input fields. By default each recording stops automatically after 30 seconds to limit ASR quota usage.
